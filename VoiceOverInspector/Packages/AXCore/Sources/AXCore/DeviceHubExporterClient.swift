@@ -8,13 +8,23 @@ import Foundation
 /// duplicated rather than shared because that package is iOS-only (UIKit).
 
 /// A single accessible element, flattened out of the tree for a simple list.
-public struct AXElement: Identifiable, Sendable {
-    public let id = UUID()
+public struct AXElement: Identifiable, Sendable, Equatable {
+    /// Stable across snapshots (derived from content), so hover survives polls.
+    public let id: String
     public let label: String?
     public let value: String?
     public let traits: [String]
     /// Frame in iOS points (top-left origin), from the app's screen space.
     public let frame: CGRect
+
+    init(label: String?, value: String?, traits: [String], frame: CGRect) {
+        self.label = label
+        self.value = value
+        self.traits = traits
+        self.frame = frame
+        self.id = "\(label ?? "")|\(value ?? "")|\(traits.joined(separator: ","))"
+            + "|\(Int(frame.minX)),\(Int(frame.minY)),\(Int(frame.width)),\(Int(frame.height))"
+    }
 
     /// The non-trait text (label, then value).
     public var primaryText: String {
