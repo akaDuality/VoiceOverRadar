@@ -22,15 +22,14 @@ public enum AccessibilityWalker {
         let windows = activeWindows()
         let screen = UIScreen.main.bounds.size
 
-        // A presented popover/sheet/alert marks its container modal; VoiceOver
-        // then reads only that subtree, so we scope the export to it.
+        // Detect a presented popover/sheet/alert for the banner. We do NOT scope
+        // to the modal view's subtree: apps vary (here the modal flag sits on a
+        // dimming leaf whose content is a sibling). Instead we walk normally —
+        // UIKit sets the background `accessibilityElementsHidden` when a modal is
+        // up, which the walker already drops, so what remains is the modal's
+        // content, matching what VoiceOver reads.
         let modal = windows.lazy.compactMap { findModal(in: $0) }.first
-        let roots: [AXNode]
-        if let modal, let node = buildNode(modal, depth: 0) {
-            roots = [node]
-        } else {
-            roots = windows.compactMap { buildNode($0, depth: 0) }
-        }
+        let roots = windows.compactMap { buildNode($0, depth: 0) }
 
         return AXSnapshot(
             appName: appName(),
