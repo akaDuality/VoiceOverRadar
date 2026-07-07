@@ -69,9 +69,14 @@ public enum AccessibilityReader {
     @discardableResult
     public static func enableManualAccessibility(pid: pid_t) -> Bool {
         let app = AXUIElementCreateApplication(pid)
-        return AXUIElementSetAttributeValue(
-            app, "AXManualAccessibility" as CFString, kCFBooleanTrue
-        ) == .success
+        // AXManualAccessibility: Chromium/Electron activation switch.
+        // AXEnhancedUserInterface: AppKit flag signalling an assistive tech is
+        // active — the iOS Simulator may only bridge its screen when this is set.
+        let manual = AXUIElementSetAttributeValue(
+            app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+        let enhanced = AXUIElementSetAttributeValue(
+            app, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
+        return manual == .success || enhanced == .success
     }
 
     /// The windows of an application element.
