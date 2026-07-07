@@ -38,13 +38,20 @@ public enum AccessibilityWalker {
         let traits = decodeTraits(object.accessibilityTraits)
 
         // Children: explicit accessibility elements win; otherwise subviews.
+        // Authored `accessibilityElements` already carry VoiceOver's read order;
+        // subview order is z-order, so we sort those into reading order below.
         var childObjects: [NSObject] = []
+        var fromExplicitOrder = false
         if let elements = object.accessibilityElements as? [NSObject], !elements.isEmpty {
             childObjects = elements
+            fromExplicitOrder = true
         } else if !isElement, let view = object as? UIView {
             childObjects = view.subviews
         }
-        let children = childObjects.compactMap { buildNode($0, depth: depth + 1) }
+        var children = childObjects.compactMap { buildNode($0, depth: depth + 1) }
+        if !fromExplicitOrder {
+            children.sort(by: readingOrderBefore)
+        }
 
         let meaningful = isElement || label != nil || value != nil || !traits.isEmpty
         if !meaningful {
@@ -83,6 +90,17 @@ public enum AccessibilityWalker {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
             ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
             ?? "App"
+    }
+
+    /// VoiceOver-style reading order: top-to-bottom, then left-to-right, with a
+    /// tolerance so items on the same visual row aren't split by a few points.
+    private static func readingOrderBefore(_ a: AXNode, _ b: AXNode) -> Bool {
+        let ay = a.frame.count > 1 ? a.frame[1] : 0
+        let by = b.frame.count > 1 ? b.frame[1] : 0
+        if abs(ay - by) > 10 { return ay < by }
+        let ax = a.frame.first ?? 0
+        let bx = b.frame.first ?? 0
+        return ax < bx
     }
 
     private static func nonEmpty(_ string: String?) -> String? {
