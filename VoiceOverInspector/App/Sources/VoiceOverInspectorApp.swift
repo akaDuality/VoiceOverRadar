@@ -13,6 +13,7 @@ struct VoiceOverInspectorApp: App {
             ContentView(monitor: monitor)
         }
         .windowResizability(.contentSize)
+        .windowStyle(.hiddenTitleBar)
 
         // The menu-bar item stays available too.
         MenuBarExtra("VoiceOver Inspector", systemImage: "text.viewfinder") {
