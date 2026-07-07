@@ -21,6 +21,9 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
     @Published public private(set) var iosScreenSize: CGSize = .zero
     /// The Simulator's on-screen device rect (global, top-left) for overlays.
     @Published public private(set) var simulatorContentRect: CGRect?
+    /// True when a popover/sheet/alert is presented in the app.
+    @Published public private(set) var modalPresented = false
+    @Published public private(set) var modalLabel: String?
 
     /// Simulated iOS apps currently running, offered as inspection targets.
     @Published public private(set) var simulatorApps: [RunningProcess] = []
@@ -147,12 +150,7 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
                 let snapshot = try await DeviceHubExporterClient.fetch(host: endpoint.host, port: endpoint.port)
                 await MainActor.run { [weak self] in
                     guard let self, self.deviceHubEndpoint?.host == endpoint.host else { return }
-                    self.frontmostAppName = snapshot.appName
-                    self.tree = snapshot.rootNode()
-                    self.elements = snapshot.flatElements()
-                    self.iosScreenSize = snapshot.iosScreenSize
-                    self.simulatorContentRect = AccessibilityReader.simulatorContentRect()
-                    self.focusedDescription = "DeviceHub: \(snapshot.appName), \(self.elements.count) element(s)."
+                    self.applySnapshot(snapshot)
                 }
             } catch {
                 await MainActor.run { [weak self] in
@@ -162,6 +160,39 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
                     self.tree = nil
                     self.elements = []
                 }
+            }
+        }
+    }
+
+    private func applySnapshot(_ snapshot: RemoteAXSnapshot) {
+        frontmostAppName = snapshot.appName
+        tree = snapshot.rootNode()
+        elements = snapshot.flatElements()
+        iosScreenSize = snapshot.iosScreenSize
+        simulatorContentRect = AccessibilityReader.simulatorContentRect()
+        modalPresented = snapshot.modalPresented ?? false
+        modalLabel = snapshot.modalLabel
+        focusedDescription = "DeviceHub: \(snapshot.appName), \(elements.count) element(s)."
+    }
+
+    /// Increment an adjustable element in the app.
+    public func increment(_ element: AXElement) { sendAction(id: element.id, type: "increment") }
+    /// Decrement an adjustable element in the app.
+    public func decrement(_ element: AXElement) { sendAction(id: element.id, type: "decrement") }
+    /// Invoke a custom action on an element in the app.
+    public func performCustomAction(_ element: AXElement, name: String) {
+        sendAction(id: element.id, type: "custom", name: name)
+    }
+
+    private func sendAction(id: String, type: String, name: String? = nil) {
+        guard let endpoint = deviceHubEndpoint else { return }
+        Task { [weak self] in
+            guard let snapshot = try? await DeviceHubExporterClient.sendAction(
+                host: endpoint.host, port: endpoint.port, id: id, type: type, name: name
+            ) else { return }
+            await MainActor.run { [weak self] in
+                guard let self, self.deviceHubEndpoint != nil else { return }
+                self.applySnapshot(snapshot)
             }
         }
     }

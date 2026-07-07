@@ -5,18 +5,59 @@ import UIKit
 /// Mirrors how VoiceOver discovers elements: it prefers an object's
 /// `accessibilityElements` when present, otherwise descends the view hierarchy,
 /// capturing anything that is an accessibility element or carries a label.
+private final class WeakRef {
+    weak var object: NSObject?
+    init(_ object: NSObject) { self.object = object }
+}
+
 @MainActor
 public enum AccessibilityWalker {
 
+    /// Maps element ids (from the last snapshot) to live objects, so DeviceHub
+    /// can trigger actions (increment/decrement/custom action) on them.
+    private static var registry: [String: WeakRef] = [:]
+
     public static func snapshot() -> AXSnapshot {
+        registry.removeAll(keepingCapacity: true)
         let windows = activeWindows()
-        let roots = windows.compactMap { buildNode($0, depth: 0) }
         let screen = UIScreen.main.bounds.size
+
+        // A presented popover/sheet/alert marks its container modal; VoiceOver
+        // then reads only that subtree, so we scope the export to it.
+        let modal = windows.lazy.compactMap { findModal(in: $0) }.first
+        let roots: [AXNode]
+        if let modal, let node = buildNode(modal, depth: 0) {
+            roots = [node]
+        } else {
+            roots = windows.compactMap { buildNode($0, depth: 0) }
+        }
+
         return AXSnapshot(
             appName: appName(),
             screenSize: [Double(screen.width), Double(screen.height)],
-            roots: roots
+            roots: roots,
+            modalPresented: modal != nil,
+            modalLabel: modal.flatMap { nonEmpty($0.accessibilityLabel) }
         )
+    }
+
+    /// Finds the first view marked `accessibilityViewIsModal` (a presented
+    /// popover/sheet/alert), searching accessibility elements then subviews.
+    private static func findModal(in object: NSObject, depth: Int = 0) -> NSObject? {
+        guard depth < 200 else { return nil }
+        if let view = object as? UIView, view.isHidden || view.alpha < 0.01 { return nil }
+        if object.accessibilityViewIsModal { return object }
+
+        var children: [NSObject] = []
+        if let elements = object.accessibilityElements as? [NSObject] {
+            children = elements
+        } else if let view = object as? UIView {
+            children = view.subviews
+        }
+        for child in children {
+            if let modal = findModal(in: child, depth: depth + 1) { return modal }
+        }
+        return nil
     }
 
     // MARK: Traversal
@@ -62,7 +103,11 @@ public enum AccessibilityWalker {
         }
 
         let frame = object.accessibilityFrame
+        let id = "\(UInt(bitPattern: ObjectIdentifier(object).hashValue))"
+        registry[id] = WeakRef(object)
+
         return AXNode(
+            id: id,
             label: label,
             value: value,
             hint: hint,
@@ -71,8 +116,42 @@ public enum AccessibilityWalker {
             isElement: isElement,
             frame: [Double(frame.minX), Double(frame.minY), Double(frame.width), Double(frame.height)],
             voiceOver: compose(label: label, value: value, traits: traits, hint: hint),
+            customActions: (object.accessibilityCustomActions ?? []).map(\.name),
+            customContent: customContent(of: object),
             children: children
         )
+    }
+
+    private static func customContent(of object: NSObject) -> [String] {
+        guard let provider = object as? AXCustomContentProvider else { return [] }
+        return provider.accessibilityCustomContent.map { entry in
+            let value = entry.value
+            return value.isEmpty ? entry.label : "\(entry.label): \(value)"
+        }
+    }
+
+    // MARK: Actions (triggered by DeviceHub)
+
+    /// Increment/decrement an adjustable element by id. Returns success.
+    @discardableResult
+    static func adjust(id: String, increment: Bool) -> Bool {
+        guard let object = registry[id]?.object else { return false }
+        if increment { object.accessibilityIncrement() } else { object.accessibilityDecrement() }
+        return true
+    }
+
+    /// Invoke a named custom action on an element by id. Returns success.
+    @discardableResult
+    static func performCustomAction(id: String, name: String) -> Bool {
+        guard let object = registry[id]?.object,
+              let action = (object.accessibilityCustomActions ?? []).first(where: { $0.name == name })
+        else { return false }
+        if let handler = action.actionHandler { return handler(action) }
+        if let target = action.target as? NSObject, target.responds(to: action.selector) {
+            _ = target.perform(action.selector, with: action)
+            return true
+        }
+        return false
     }
 
     // MARK: Helpers

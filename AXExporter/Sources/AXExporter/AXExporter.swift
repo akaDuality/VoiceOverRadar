@@ -23,8 +23,8 @@ public final class AXExporter {
         guard server == nil else { return }
         self.port = port
         do {
-            let server = try AXExportServer(port: port) {
-                Self.encodedSnapshot()
+            let server = try AXExportServer(port: port) { target in
+                Self.handle(target)
             }
             server.start()
             self.server = server
@@ -39,10 +39,39 @@ public final class AXExporter {
         server = nil
     }
 
-    /// Encodes the current snapshot. The tree walk must run on the main thread;
-    /// the server calls this from its main-queue handler.
-    nonisolated private static func encodedSnapshot() -> Data {
-        let snapshot = MainActor.assumeIsolated { AccessibilityWalker.snapshot() }
+    /// Handles a request target: performs an action if it's "/action?…", then
+    /// always returns the current snapshot. Runs on the server's main queue.
+    nonisolated private static func handle(_ target: String) -> Data {
+        MainActor.assumeIsolated {
+            if target.hasPrefix("/action") { performAction(query: target) }
+            return encodedSnapshot()
+        }
+    }
+
+    /// Parses `/action?id=…&type=increment|decrement|custom&name=…` and runs it.
+    private static func performAction(query target: String) {
+        guard let queryStart = target.firstIndex(of: "?") else { return }
+        var params: [String: String] = [:]
+        for pair in target[target.index(after: queryStart)...].split(separator: "&") {
+            let kv = pair.split(separator: "=", maxSplits: 1)
+            guard kv.count == 2 else { continue }
+            let key = String(kv[0])
+            let value = String(kv[1]).removingPercentEncoding ?? String(kv[1])
+            params[key] = value
+        }
+        guard let id = params["id"], let type = params["type"] else { return }
+        switch type {
+        case "increment": AccessibilityWalker.adjust(id: id, increment: true)
+        case "decrement": AccessibilityWalker.adjust(id: id, increment: false)
+        case "custom":
+            if let name = params["name"] { AccessibilityWalker.performCustomAction(id: id, name: name) }
+        default: break
+        }
+    }
+
+    /// Encodes the current snapshot. The tree walk must run on the main thread.
+    private static func encodedSnapshot() -> Data {
+        let snapshot = AccessibilityWalker.snapshot()
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
         return (try? encoder.encode(snapshot)) ?? Data("{}".utf8)

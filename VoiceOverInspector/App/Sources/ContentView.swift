@@ -16,6 +16,11 @@ struct ContentView: View {
                     Divider()
                 }
 
+                if monitor.modalPresented {
+                    modalBanner
+                    Divider()
+                }
+
                 if monitor.elements.isEmpty {
                     emptyState
                 } else {
@@ -81,7 +86,10 @@ struct ContentView: View {
                                 iosSize: monitor.iosScreenSize,
                                 contentRect: monitor.simulatorContentRect
                             )
-                        }
+                        },
+                        onIncrement: { monitor.increment(element) },
+                        onDecrement: { monitor.decrement(element) },
+                        onCustomAction: { name in monitor.performCustomAction(element, name: name) }
                     )
                     Divider()
                 }
@@ -113,6 +121,17 @@ struct ContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
+    }
+
+    private var modalBanner: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "rectangle.on.rectangle.angled")
+            Text(monitor.modalLabel.map { "Popover: \($0)" } ?? "Popover presented")
+                .font(.caption).bold()
+            Spacer()
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .foregroundStyle(.orange)
     }
 
     private var permissionBanner: some View {
@@ -175,10 +194,15 @@ private struct ElementRow: View {
     let element: AXElement
     let hoverChanged: (Bool) -> Void
     let onTap: () -> Void
+    let onIncrement: () -> Void
+    let onDecrement: () -> Void
+    let onCustomAction: (String) -> Void
     @State private var hovering = false
 
+    private var hasControls: Bool { element.isAdjustable || !element.customActions.isEmpty }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(element.primaryText)
                 .font(.callout)
             if !element.traits.isEmpty {
@@ -186,13 +210,32 @@ private struct ElementRow: View {
                     .font(.caption).bold()
                     .foregroundStyle(.secondary)
             }
+            ForEach(element.customContent, id: \.self) { content in
+                Text(content)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            if hasControls { controls }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12).padding(.vertical, 6)
-        .frame(maxWidth: .infinity, alignment: .leading)
         .background(hovering ? Color.accentColor.opacity(0.18) : Color.clear)
         .contentShape(Rectangle())
         .onHover { hovering = $0; hoverChanged($0) }
         .onTapGesture { onTap() }
+    }
+
+    private var controls: some View {
+        HStack(spacing: 6) {
+            if element.isAdjustable {
+                Button { onDecrement() } label: { Image(systemName: "minus") }
+                Button { onIncrement() } label: { Image(systemName: "plus") }
+            }
+            ForEach(element.customActions, id: \.self) { name in
+                Button(name) { onCustomAction(name) }
+            }
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
     }
 }

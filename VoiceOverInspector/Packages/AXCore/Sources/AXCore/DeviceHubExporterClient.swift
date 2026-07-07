@@ -9,22 +9,17 @@ import Foundation
 
 /// A single accessible element, flattened out of the tree for a simple list.
 public struct AXElement: Identifiable, Sendable, Equatable {
-    /// Stable across snapshots (derived from content), so hover survives polls.
+    /// Exporter-assigned, stable per process — also used to target actions.
     public let id: String
     public let label: String?
     public let value: String?
     public let traits: [String]
     /// Frame in iOS points (top-left origin), from the app's screen space.
     public let frame: CGRect
+    public let customActions: [String]
+    public let customContent: [String]
 
-    init(label: String?, value: String?, traits: [String], frame: CGRect) {
-        self.label = label
-        self.value = value
-        self.traits = traits
-        self.frame = frame
-        self.id = "\(label ?? "")|\(value ?? "")|\(traits.joined(separator: ","))"
-            + "|\(Int(frame.minX)),\(Int(frame.minY)),\(Int(frame.width)),\(Int(frame.height))"
-    }
+    public var isAdjustable: Bool { traits.contains("adjustable") }
 
     /// The non-trait text (label, then value).
     public var primaryText: String {
@@ -37,6 +32,8 @@ public struct RemoteAXSnapshot: Codable, Sendable {
     public var appName: String
     public var screenSize: [Double]
     public var roots: [RemoteAXNode]
+    public var modalPresented: Bool?
+    public var modalLabel: String?
 
     /// The iOS logical screen size in points.
     public var iosScreenSize: CGSize {
@@ -69,6 +66,7 @@ public struct RemoteAXSnapshot: Codable, Sendable {
 }
 
 public struct RemoteAXNode: Codable, Sendable {
+    public var id: String
     public var label: String?
     public var value: String?
     public var hint: String?
@@ -77,16 +75,21 @@ public struct RemoteAXNode: Codable, Sendable {
     public var isElement: Bool
     public var frame: [Double]
     public var voiceOver: String
+    public var customActions: [String]
+    public var customContent: [String]
     public var children: [RemoteAXNode]
 
     /// Appends this node (if it's an accessible element) and its descendants.
     func collect(into result: inout [AXElement]) {
         if isElement, frame.count == 4 {
             result.append(AXElement(
+                id: id,
                 label: label,
                 value: value,
                 traits: traits,
-                frame: CGRect(x: frame[0], y: frame[1], width: frame[2], height: frame[3])
+                frame: CGRect(x: frame[0], y: frame[1], width: frame[2], height: frame[3]),
+                customActions: customActions,
+                customContent: customContent
             ))
         }
         for child in children { child.collect(into: &result) }
@@ -111,6 +114,26 @@ public enum DeviceHubExporterClient {
         guard let url = URL(string: "http://\(host):\(port)/") else {
             throw URLError(.badURL)
         }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 3
+        let (data, _) = try await URLSession.shared.data(for: request)
+        return try JSONDecoder().decode(RemoteAXSnapshot.self, from: data)
+    }
+
+    /// Triggers an action on an element and returns the resulting snapshot.
+    /// `type` is "increment", "decrement", or "custom" (with `name`).
+    public static func sendAction(
+        host: String, port: Int, id: String, type: String, name: String? = nil
+    ) async throws -> RemoteAXSnapshot {
+        var components = URLComponents()
+        components.scheme = "http"
+        components.host = host
+        components.port = port
+        components.path = "/action"
+        var items = [URLQueryItem(name: "id", value: id), URLQueryItem(name: "type", value: type)]
+        if let name { items.append(URLQueryItem(name: "name", value: name)) }
+        components.queryItems = items
+        guard let url = components.url else { throw URLError(.badURL) }
         var request = URLRequest(url: url)
         request.timeoutInterval = 3
         let (data, _) = try await URLSession.shared.data(for: request)
