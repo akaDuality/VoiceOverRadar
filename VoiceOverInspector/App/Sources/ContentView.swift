@@ -9,9 +9,6 @@ struct ContentView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            header
-            Divider()
-
             if !monitor.isTrusted {
                 permissionBanner
                 Divider()
@@ -27,10 +24,25 @@ struct ContentView: View {
             footer
         }
         .frame(width: 260, height: 560)
-        .background(WindowAccessor { window = $0; positionNearSimulator() })
+        .background(VisualEffectView().ignoresSafeArea())
+        .background(WindowAccessor { configureWindow($0) })
         .onAppear { monitor.startDeviceHub() }
         .onChange(of: monitor.simulatorContentRect) { _ in positionNearSimulator() }
         .onDisappear { overlay.hide() }
+    }
+
+    private func configureWindow(_ window: NSWindow) {
+        self.window = window
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.styleMask.insert(.fullSizeContentView)
+        window.isMovableByWindowBackground = true
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.standardWindowButton(.closeButton)?.isHidden = true
+        window.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        window.standardWindowButton(.zoomButton)?.isHidden = true
+        positionNearSimulator()
     }
 
     /// Keep the window docked just right of the Simulator; follows it when the
@@ -44,15 +56,6 @@ struct ContentView: View {
     }
 
     // MARK: Sections
-
-    private var header: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "text.viewfinder")
-            Text(monitor.frontmostAppName).font(.headline)
-            Spacer()
-        }
-        .padding(12)
-    }
 
     private var elementList: some View {
         ScrollView {
@@ -116,8 +119,6 @@ struct ContentView: View {
             Spacer()
             Text("\(monitor.elements.count) elements")
                 .font(.caption2).foregroundStyle(.secondary)
-            Button("Quit") { NSApplication.shared.terminate(nil) }
-                .controlSize(.small)
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
     }
@@ -126,6 +127,18 @@ struct ContentView: View {
         guard let r = monitor.simulatorContentRect else { return "Simulator not located" }
         return "Sim \(Int(r.width))×\(Int(r.height)) @(\(Int(r.minX)),\(Int(r.minY)))"
     }
+}
+
+/// A behind-window vibrancy blur for the inspector background.
+private struct VisualEffectView: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .hudWindow
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
 }
 
 /// Grabs the hosting `NSWindow` so we can position it programmatically.
