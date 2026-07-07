@@ -1,0 +1,12 @@
+# Tuist-generated artifacts (regenerate with `tuist generate`)
+*.xcodeproj
+*.xcworkspace
+.tuist-derived/
+Derived/
+
+# Xcode / SwiftPM
+.build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.swiftpm/
