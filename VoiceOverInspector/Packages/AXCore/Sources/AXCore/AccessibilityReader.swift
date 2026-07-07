@@ -56,6 +56,54 @@ public enum AccessibilityReader {
         return (focused as! AXUIElement)
     }
 
+    /// Reads a `CGPoint`-valued attribute (e.g. `kAXPositionAttribute`).
+    public static func point(_ element: AXUIElement, _ attribute: String) -> CGPoint? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success,
+              let value else { return nil }
+        let axValue = value as! AXValue
+        var point = CGPoint.zero
+        guard AXValueGetType(axValue) == .cgPoint,
+              AXValueGetValue(axValue, .cgPoint, &point) else { return nil }
+        return point
+    }
+
+    /// Reads a `CGSize`-valued attribute (e.g. `kAXSizeAttribute`).
+    public static func size(_ element: AXUIElement, _ attribute: String) -> CGSize? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success,
+              let value else { return nil }
+        let axValue = value as! AXValue
+        var size = CGSize.zero
+        guard AXValueGetType(axValue) == .cgSize,
+              AXValueGetValue(axValue, .cgSize, &size) else { return nil }
+        return size
+    }
+
+    /// Depth-first search for the first descendant with the given subrole.
+    public static func firstDescendant(of element: AXUIElement, subrole: String, maxDepth: Int = 60) -> AXUIElement? {
+        if string(element, kAXSubroleAttribute) == subrole { return element }
+        guard maxDepth > 0 else { return nil }
+        for child in children(of: element) {
+            if let found = firstDescendant(of: child, subrole: subrole, maxDepth: maxDepth - 1) {
+                return found
+            }
+        }
+        return nil
+    }
+
+    /// The on-screen rectangle (global, top-left origin) of the iOS Simulator's
+    /// rendered device screen — the `iOSContentGroup`. Used to map iOS-point
+    /// element frames onto the Mac screen for overlays.
+    public static func simulatorContentRect() -> CGRect? {
+        guard let host = HostProcesses.simulatorHosts().first else { return nil }
+        let app = AXUIElementCreateApplication(host.id)
+        guard let group = firstDescendant(of: app, subrole: "iOSContentGroup"),
+              let origin = point(group, kAXPositionAttribute),
+              let dimensions = size(group, kAXSizeAttribute) else { return nil }
+        return CGRect(origin: origin, size: dimensions)
+    }
+
     /// The attribute names an element exposes (useful for diagnostics).
     public static func attributeNames(of element: AXUIElement) -> [String] {
         var names: CFArray?

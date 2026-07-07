@@ -7,10 +7,23 @@ import Foundation
 /// The shapes here mirror `AXExporter`'s `AXSnapshot`/`AXNode`. They're
 /// duplicated rather than shared because that package is iOS-only (UIKit).
 
+/// A single accessible element, flattened out of the tree for a simple list.
+public struct AXElement: Identifiable, Sendable {
+    public let id = UUID()
+    public let description: String
+    /// Frame in iOS points (top-left origin), from the app's screen space.
+    public let frame: CGRect
+}
+
 public struct RemoteAXSnapshot: Codable, Sendable {
     public var appName: String
     public var screenSize: [Double]
     public var roots: [RemoteAXNode]
+
+    /// The iOS logical screen size in points.
+    public var iosScreenSize: CGSize {
+        CGSize(width: screenSize.first ?? 0, height: screenSize.last ?? 0)
+    }
 
     /// A single root node summarizing the screen, for the tree view.
     public func rootNode() -> AccessibilityReader.Node {
@@ -21,6 +34,13 @@ public struct RemoteAXSnapshot: Codable, Sendable {
             role: "screen",
             children: roots.map { $0.asNode() }
         )
+    }
+
+    /// The accessible elements, depth-first, as a flat list.
+    public func flatElements() -> [AXElement] {
+        var result: [AXElement] = []
+        for root in roots { root.collect(into: &result) }
+        return result
     }
 }
 
@@ -34,6 +54,17 @@ public struct RemoteAXNode: Codable, Sendable {
     public var frame: [Double]
     public var voiceOver: String
     public var children: [RemoteAXNode]
+
+    /// Appends this node (if it's an accessible element) and its descendants.
+    func collect(into result: inout [AXElement]) {
+        if isElement, frame.count == 4 {
+            result.append(AXElement(
+                description: voiceOver,
+                frame: CGRect(x: frame[0], y: frame[1], width: frame[2], height: frame[3])
+            ))
+        }
+        for child in children { child.collect(into: &result) }
+    }
 
     func asNode() -> AccessibilityReader.Node {
         var text = voiceOver

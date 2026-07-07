@@ -15,6 +15,13 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
     @Published public private(set) var isTrusted: Bool = AccessibilityPermissions.isTrusted
     @Published public private(set) var tree: AccessibilityReader.Node?
 
+    /// The current screen's accessible elements, flattened for a simple list.
+    @Published public private(set) var elements: [AXElement] = []
+    /// The iOS logical screen size (points) of the current DeviceHub snapshot.
+    @Published public private(set) var iosScreenSize: CGSize = .zero
+    /// The Simulator's on-screen device rect (global, top-left) for overlays.
+    @Published public private(set) var simulatorContentRect: CGRect?
+
     /// Simulated iOS apps currently running, offered as inspection targets.
     @Published public private(set) var simulatorApps: [RunningProcess] = []
     /// Simulator.app host process(es), also offered as targets.
@@ -109,6 +116,14 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
         startContentRefresh()
     }
 
+    /// Entry point for the simplified DeviceHub-only inspector: begins polling
+    /// the local exporter and ensures AX trust (needed for the Simulator overlay).
+    public func startDeviceHub(host: String = "localhost", port: Int = 8765) {
+        refreshTrust()
+        if !isTrusted { startTrustPolling() }
+        inspectDeviceHub(host: host, port: port)
+    }
+
     /// Poll an in-app AXExporter endpoint (an iOS app running the exporter).
     public func inspectDeviceHub(host: String = "localhost", port: Int = 8765) {
         pinnedPID = nil
@@ -134,7 +149,10 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
                     guard let self, self.deviceHubEndpoint?.host == endpoint.host else { return }
                     self.frontmostAppName = snapshot.appName
                     self.tree = snapshot.rootNode()
-                    self.focusedDescription = "DeviceHub: \(snapshot.appName), \(snapshot.roots.count) root element(s)."
+                    self.elements = snapshot.flatElements()
+                    self.iosScreenSize = snapshot.iosScreenSize
+                    self.simulatorContentRect = AccessibilityReader.simulatorContentRect()
+                    self.focusedDescription = "DeviceHub: \(snapshot.appName), \(self.elements.count) element(s)."
                 }
             } catch {
                 await MainActor.run { [weak self] in
@@ -142,6 +160,7 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
                     self.focusedDescription = "No response from \(endpoint.host):\(endpoint.port). "
                         + "Is the app running with AXExporter started?"
                     self.tree = nil
+                    self.elements = []
                 }
             }
         }
