@@ -18,11 +18,20 @@ enum SimulatorInput {
             y: contentRect.origin.y + iosFrame.midY * scaleY
         )
 
+        // Remember where the cursor was (global, top-left) so we can put it back.
+        let originalLocation = CGEvent(source: nil)?.location
+
         let source = CGEventSource(stateID: .combinedSessionState)
         CGWarpMouseCursorPosition(point)
         CGEvent(mouseEventSource: source, mouseType: .leftMouseDown,
                 mouseCursorPosition: point, mouseButton: .left)?.post(tap: .cghidEventTap)
         CGEvent(mouseEventSource: source, mouseType: .leftMouseUp,
                 mouseCursorPosition: point, mouseButton: .left)?.post(tap: .cghidEventTap)
+
+        if let originalLocation {
+            CGWarpMouseCursorPosition(originalLocation)
+            // Reassociate cursor and mouse after warping so movement is smooth.
+            CGAssociateMouseAndMouseCursorPosition(1)
+        }
     }
 }
