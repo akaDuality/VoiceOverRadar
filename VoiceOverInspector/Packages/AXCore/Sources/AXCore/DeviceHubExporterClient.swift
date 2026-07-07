@@ -54,11 +54,17 @@ public struct RemoteAXSnapshot: Codable, Sendable {
         )
     }
 
-    /// The accessible elements, depth-first, as a flat list.
+    /// The accessible elements as a flat list, in VoiceOver reading order
+    /// (top-to-bottom, then left-to-right). Sorting globally — rather than only
+    /// within each container — keeps deeply nested elements from preceding a
+    /// later, shallower sibling.
     public func flatElements() -> [AXElement] {
         var result: [AXElement] = []
         for root in roots { root.collect(into: &result) }
-        return result
+        return result.sorted { a, b in
+            if abs(a.frame.minY - b.frame.minY) > 10 { return a.frame.minY < b.frame.minY }
+            return a.frame.minX < b.frame.minX
+        }
     }
 }
 
