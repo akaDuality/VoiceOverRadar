@@ -35,6 +35,11 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
     /// frontmost app (used for apps inside the iOS Simulator).
     private var pinnedPID: pid_t?
 
+    /// When set, we poll an in-app AXExporter endpoint (iOS app) instead of the
+    /// macOS AX API.
+    private var deviceHubEndpoint: (host: String, port: Int)?
+    private var deviceHubTimer: Timer?
+
     private let ownPID = ProcessInfo.processInfo.processIdentifier
 
     public init() {}
@@ -81,6 +86,9 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
     /// Pin inspection to a specific process (e.g. an app inside the Simulator).
     public func inspect(_ process: RunningProcess) {
         pinnedPID = process.id
+        deviceHubEndpoint = nil
+        deviceHubTimer?.invalidate()
+        deviceHubTimer = nil
         targetLabel = process.name
         teardownObserver()
         frontmostAppName = process.name
@@ -94,9 +102,50 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
         startContentRefresh()
     }
 
+    /// Poll an in-app AXExporter endpoint (an iOS app running the exporter).
+    public func inspectDeviceHub(host: String = "localhost", port: Int = 8765) {
+        pinnedPID = nil
+        teardownObserver()
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+        deviceHubEndpoint = (host, port)
+        targetLabel = "DeviceHub \(host):\(port)"
+        frontmostAppName = targetLabel
+        fetchDeviceHub()
+        deviceHubTimer?.invalidate()
+        deviceHubTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.fetchDeviceHub()
+        }
+    }
+
+    private func fetchDeviceHub() {
+        guard let endpoint = deviceHubEndpoint else { return }
+        Task { [weak self] in
+            do {
+                let snapshot = try await DeviceHubExporterClient.fetch(host: endpoint.host, port: endpoint.port)
+                await MainActor.run { [weak self] in
+                    guard let self, self.deviceHubEndpoint?.host == endpoint.host else { return }
+                    self.frontmostAppName = snapshot.appName
+                    self.tree = snapshot.rootNode()
+                    self.focusedDescription = "DeviceHub: \(snapshot.appName), \(snapshot.roots.count) root element(s)."
+                }
+            } catch {
+                await MainActor.run { [weak self] in
+                    guard let self, self.deviceHubEndpoint != nil else { return }
+                    self.focusedDescription = "No response from \(endpoint.host):\(endpoint.port). "
+                        + "Is the app running with AXExporter started?"
+                    self.tree = nil
+                }
+            }
+        }
+    }
+
     /// Return to following whichever macOS app is frontmost.
     public func followFrontmost() {
         pinnedPID = nil
+        deviceHubEndpoint = nil
+        deviceHubTimer?.invalidate()
+        deviceHubTimer = nil
         targetLabel = "Frontmost app"
         refreshTimer?.invalidate()
         refreshTimer = nil
@@ -120,6 +169,8 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
         trustTimer = nil
         refreshTimer?.invalidate()
         refreshTimer = nil
+        deviceHubTimer?.invalidate()
+        deviceHubTimer = nil
         teardownObserver()
     }
 
@@ -148,8 +199,8 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
     // MARK: Targeting
 
     private func retarget(to app: NSRunningApplication?) {
-        // Don't let app switches steal focus away from a pinned Simulator app.
-        guard pinnedPID == nil else { return }
+        // Don't let app switches steal focus from a pinned or DeviceHub target.
+        guard pinnedPID == nil, deviceHubEndpoint == nil else { return }
         // Ignore ourselves (e.g. when the menu bar popover takes focus) so the
         // last real target's description stays on screen.
         guard let app, app.processIdentifier != ownPID else { return }

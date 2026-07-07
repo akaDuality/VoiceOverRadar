@@ -21,6 +21,10 @@ let project = Project(
                 // Dev-friendly: show a Dock icon + window. Set LSUIElement to
                 // true to ship as a pure menu-bar agent (no Dock icon/window).
                 "CFBundleDisplayName": "VoiceOver Inspector",
+                // Allow plain-HTTP requests to the local exporter endpoint.
+                "NSAppTransportSecurity": [
+                    "NSAllowsLocalNetworking": true,
+                ],
             ]),
             sources: ["App/Sources/**"],
             entitlements: .file(path: "App/VoiceOverInspector.entitlements"),

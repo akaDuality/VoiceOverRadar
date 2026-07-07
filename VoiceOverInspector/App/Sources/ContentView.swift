@@ -35,6 +35,10 @@ struct ContentView: View {
         HStack(spacing: 6) {
             Menu {
                 Button("Frontmost app (auto)") { monitor.followFrontmost() }
+                Divider()
+                Section("DeviceHub") {
+                    Button("In-app exporter (localhost:8765)") { monitor.inspectDeviceHub() }
+                }
                 if !monitor.simulatorHosts.isEmpty {
                     Divider()
                     Section("Simulator host") {
