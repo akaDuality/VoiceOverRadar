@@ -116,16 +116,16 @@ private struct ElementRow: View {
     @State private var hovering = false
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
+        VStack(alignment: .leading, spacing: 2) {
             Text(element.primaryText)
                 .font(.callout)
             if !element.traits.isEmpty {
                 Text(element.traits.joined(separator: " · "))
-                    .font(.callout).bold()
+                    .font(.caption).bold()
                     .foregroundStyle(.secondary)
             }
-            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12).padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(hovering ? Color.accentColor.opacity(0.18) : Color.clear)
