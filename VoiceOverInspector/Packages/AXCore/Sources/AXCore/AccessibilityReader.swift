@@ -150,6 +150,14 @@ public enum AccessibilityReader {
         return Node(description: "Application (pid \(pid))", role: "AXApplication", children: childNodes)
     }
 
+    /// A text dump of an already-built `Node` tree (e.g. from DeviceHub).
+    public static func dumpNode(_ node: Node, depth: Int = 0) -> String {
+        let indent = String(repeating: "  ", count: depth)
+        var out = "\(indent)• \(node.description)\n"
+        for child in node.children { out += dumpNode(child, depth: depth + 1) }
+        return out
+    }
+
     /// A verbose text dump of a process's AX tree for diagnostics.
     public static func debugDump(pid: pid_t, maxDepth: Int = 60) -> String {
         let app = AXUIElementCreateApplication(pid)

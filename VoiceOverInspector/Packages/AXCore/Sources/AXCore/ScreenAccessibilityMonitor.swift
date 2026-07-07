@@ -75,8 +75,15 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
     /// Writes a verbose AX dump of the current target to /tmp for diagnostics.
     @discardableResult
     public func dumpTargetTree() -> String? {
-        guard let pid = observedPID else { return nil }
-        let text = AccessibilityReader.debugDump(pid: pid)
+        let text: String
+        if deviceHubEndpoint != nil {
+            guard let tree else { return nil }
+            text = "DeviceHub target: \(targetLabel)\n\n" + AccessibilityReader.dumpNode(tree)
+        } else if let pid = observedPID {
+            text = AccessibilityReader.debugDump(pid: pid)
+        } else {
+            return nil
+        }
         let path = "/tmp/vo-inspector-dump.txt"
         try? text.write(toFile: path, atomically: true, encoding: .utf8)
         lastDumpPath = path
