@@ -44,18 +44,17 @@ struct ContentView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(monitor.elements) { element in
-                    ElementRow(element: element)
-                        .onHover { hovering in
-                            if hovering {
-                                overlay.highlight(
-                                    iosFrame: element.frame,
-                                    iosSize: monitor.iosScreenSize,
-                                    contentRect: monitor.simulatorContentRect
-                                )
-                            } else {
-                                overlay.hide()
-                            }
+                    ElementRow(element: element) { hovering in
+                        if hovering {
+                            overlay.highlight(
+                                iosFrame: element.frame,
+                                iosSize: monitor.iosScreenSize,
+                                contentRect: monitor.simulatorContentRect
+                            )
+                        } else {
+                            overlay.hide()
                         }
+                    }
                     Divider()
                 }
             }
@@ -93,7 +92,7 @@ struct ContentView: View {
             Circle()
                 .fill(monitor.simulatorContentRect == nil ? Color.orange : Color.green)
                 .frame(width: 8, height: 8)
-            Text(monitor.simulatorContentRect == nil ? "Simulator not located" : "Hover a row to outline")
+            Text(simulatorStatus)
                 .font(.caption2).foregroundStyle(.secondary)
             Spacer()
             Text("\(monitor.elements.count) elements")
@@ -103,29 +102,34 @@ struct ContentView: View {
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
     }
+
+    private var simulatorStatus: String {
+        guard let r = monitor.simulatorContentRect else { return "Simulator not located" }
+        return "Sim \(Int(r.width))×\(Int(r.height)) @(\(Int(r.minX)),\(Int(r.minY)))"
+    }
 }
 
-/// One accessible element: its VoiceOver phrase, with the frame as a subtitle.
+/// One accessible element: label/value in normal weight, traits in bold.
 private struct ElementRow: View {
     let element: AXElement
+    let hoverChanged: (Bool) -> Void
     @State private var hovering = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(element.description)
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(element.primaryText)
                 .font(.callout)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Text(frameText)
-                .font(.caption2).foregroundStyle(.secondary)
+            if !element.traits.isEmpty {
+                Text(element.traits.joined(separator: " · "))
+                    .font(.callout).bold()
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 12).padding(.vertical, 6)
-        .background(hovering ? Color.accentColor.opacity(0.15) : Color.clear)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(hovering ? Color.accentColor.opacity(0.18) : Color.clear)
         .contentShape(Rectangle())
-        .onHover { hovering = $0 }
-    }
-
-    private var frameText: String {
-        let f = element.frame
-        return "(\(Int(f.minX)), \(Int(f.minY)))  \(Int(f.width))×\(Int(f.height))"
+        .onHover { hovering = $0; hoverChanged($0) }
     }
 }

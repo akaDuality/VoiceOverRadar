@@ -36,7 +36,9 @@ final class SimulatorOverlay: ObservableObject {
     private func show(_ rect: CGRect) {
         let window = self.window ?? makeWindow()
         window.setFrame(rect, display: true)
-        window.orderFront(nil)
+        window.contentView?.needsDisplay = true
+        // Show above the Simulator even though it's the frontmost app.
+        window.orderFrontRegardless()
         self.window = window
     }
 
@@ -51,6 +53,7 @@ final class SimulatorOverlay: ObservableObject {
         window.backgroundColor = .clear
         window.hasShadow = false
         window.ignoresMouseEvents = true
+        window.hidesOnDeactivate = false
         window.level = .screenSaver
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
         window.contentView = OutlineView()

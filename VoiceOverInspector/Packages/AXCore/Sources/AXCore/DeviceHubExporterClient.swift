@@ -10,9 +10,17 @@ import Foundation
 /// A single accessible element, flattened out of the tree for a simple list.
 public struct AXElement: Identifiable, Sendable {
     public let id = UUID()
-    public let description: String
+    public let label: String?
+    public let value: String?
+    public let traits: [String]
     /// Frame in iOS points (top-left origin), from the app's screen space.
     public let frame: CGRect
+
+    /// The non-trait text (label, then value).
+    public var primaryText: String {
+        let parts = [label, value].compactMap { $0 }
+        return parts.isEmpty ? "(no label)" : parts.joined(separator: ", ")
+    }
 }
 
 public struct RemoteAXSnapshot: Codable, Sendable {
@@ -59,7 +67,9 @@ public struct RemoteAXNode: Codable, Sendable {
     func collect(into result: inout [AXElement]) {
         if isElement, frame.count == 4 {
             result.append(AXElement(
-                description: voiceOver,
+                label: label,
+                value: value,
+                traits: traits,
                 frame: CGRect(x: frame[0], y: frame[1], width: frame[2], height: frame[3])
             ))
         }
