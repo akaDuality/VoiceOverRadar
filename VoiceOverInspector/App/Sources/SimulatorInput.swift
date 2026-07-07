@@ -1,4 +1,5 @@
 import AppKit
+import AXCore
 
 /// Sends a synthetic click to the Simulator at an element's location. The
 /// Simulator turns a Mac mouse click into an iOS touch, so clicking the mapped
@@ -18,12 +19,20 @@ enum SimulatorInput {
             y: contentRect.origin.y + iosFrame.midY * scaleY
         )
 
-        // Post the click at the target point WITHOUT moving the real cursor —
-        // the events carry their own location, which the Simulator honors.
         let source = CGEventSource(stateID: .combinedSessionState)
-        CGEvent(mouseEventSource: source, mouseType: .leftMouseDown,
-                mouseCursorPosition: point, mouseButton: .left)?.post(tap: .cghidEventTap)
-        CGEvent(mouseEventSource: source, mouseType: .leftMouseUp,
-                mouseCursorPosition: point, mouseButton: .left)?.post(tap: .cghidEventTap)
+        let down = CGEvent(mouseEventSource: source, mouseType: .leftMouseDown,
+                           mouseCursorPosition: point, mouseButton: .left)
+        let up = CGEvent(mouseEventSource: source, mouseType: .leftMouseUp,
+                         mouseCursorPosition: point, mouseButton: .left)
+
+        if let pid = HostProcesses.simulatorHosts().first?.id {
+            // Deliver straight to the Simulator process so the real cursor
+            // never moves.
+            down?.postToPid(pid)
+            up?.postToPid(pid)
+        } else {
+            down?.post(tap: .cghidEventTap)
+            up?.post(tap: .cghidEventTap)
+        }
     }
 }

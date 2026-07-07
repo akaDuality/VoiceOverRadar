@@ -26,7 +26,8 @@ struct ContentView: View {
                 footer
             }
         }
-        .frame(width: 260, height: 560)
+        .frame(width: 260)
+        .frame(maxHeight: .infinity)
         .background(WindowAccessor { configureWindow($0) })
         .onAppear { monitor.startDeviceHub() }
         .onChange(of: monitor.simulatorContentRect) { _ in positionNearSimulator() }
@@ -53,9 +54,13 @@ struct ContentView: View {
     private func positionNearSimulator() {
         guard let window, let rect = monitor.simulatorContentRect else { return }
         let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
-        // setFrameTopLeftPoint uses Cocoa (bottom-left origin) screen coords.
-        let topLeft = NSPoint(x: rect.maxX + 48, y: primaryHeight - rect.minY)
-        window.setFrameTopLeftPoint(topLeft)
+        // Match the Simulator's device height; dock to its right, tops aligned.
+        let width: CGFloat = 260
+        let cocoaY = primaryHeight - (rect.minY + rect.height)
+        window.setFrame(
+            NSRect(x: rect.maxX + 48, y: cocoaY, width: width, height: rect.height),
+            display: true
+        )
     }
 
     // MARK: Sections
