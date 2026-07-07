@@ -55,9 +55,13 @@ final class SimulatorOverlay: ObservableObject {
 
     private func show(frame: CGRect, boxes: [OverlayBox]) {
         let window = self.window ?? makeWindow()
-        window.setFrame(frame, display: false)
-        (window.contentView as? OverlayView)?.boxes = boxes
-        window.contentView?.needsDisplay = true
+        window.setFrame(frame, display: true)
+        if let view = window.contentView as? OverlayView {
+            // Keep the view's bounds in sync so boxes aren't clipped to zero.
+            view.frame = CGRect(origin: .zero, size: frame.size)
+            view.boxes = boxes
+            view.needsDisplay = true
+        }
         window.orderFrontRegardless()
         self.window = window
     }

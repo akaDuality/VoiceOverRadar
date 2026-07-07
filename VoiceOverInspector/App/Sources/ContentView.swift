@@ -6,7 +6,6 @@ struct ContentView: View {
     @StateObject private var overlay = SimulatorOverlay()
     @State private var hoveredID: String?
     @State private var window: NSWindow?
-    @State private var didPosition = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -27,21 +26,21 @@ struct ContentView: View {
             Divider()
             footer
         }
-        .frame(width: 200, height: 560)
+        .frame(width: 260, height: 560)
         .background(WindowAccessor { window = $0; positionNearSimulator() })
         .onAppear { monitor.startDeviceHub() }
         .onChange(of: monitor.simulatorContentRect) { _ in positionNearSimulator() }
         .onDisappear { overlay.hide() }
     }
 
-    /// Dock the window just to the right of the Simulator, once, as a companion.
+    /// Keep the window docked just right of the Simulator; follows it when the
+    /// Simulator is moved (fires whenever the device rect changes).
     private func positionNearSimulator() {
-        guard !didPosition, let window, let rect = monitor.simulatorContentRect else { return }
+        guard let window, let rect = monitor.simulatorContentRect else { return }
         let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
         // setFrameTopLeftPoint uses Cocoa (bottom-left origin) screen coords.
         let topLeft = NSPoint(x: rect.maxX + 48, y: primaryHeight - rect.minY)
         window.setFrameTopLeftPoint(topLeft)
-        didPosition = true
     }
 
     // MARK: Sections
