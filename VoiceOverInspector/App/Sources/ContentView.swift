@@ -8,23 +8,25 @@ struct ContentView: View {
     @State private var window: NSWindow?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if !monitor.isTrusted {
-                permissionBanner
+        ZStack(alignment: .top) {
+            VisualEffectView().ignoresSafeArea()
+            VStack(alignment: .leading, spacing: 0) {
+                if !monitor.isTrusted {
+                    permissionBanner
+                    Divider()
+                }
+
+                if monitor.elements.isEmpty {
+                    emptyState
+                } else {
+                    elementList
+                }
+
                 Divider()
+                footer
             }
-
-            if monitor.elements.isEmpty {
-                emptyState
-            } else {
-                elementList
-            }
-
-            Divider()
-            footer
         }
         .frame(width: 260, height: 560)
-        .background(VisualEffectView().ignoresSafeArea())
         .background(WindowAccessor { configureWindow($0) })
         .onAppear { monitor.startDeviceHub() }
         .onChange(of: monitor.simulatorContentRect) { _ in positionNearSimulator() }
@@ -35,6 +37,7 @@ struct ContentView: View {
         self.window = window
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
         window.styleMask.insert(.fullSizeContentView)
         window.isMovableByWindowBackground = true
         window.isOpaque = false
@@ -61,10 +64,20 @@ struct ContentView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(monitor.elements) { element in
-                    ElementRow(element: element) { hovering in
-                        if hovering { hoveredID = element.id }
-                        else if hoveredID == element.id { hoveredID = nil }
-                    }
+                    ElementRow(
+                        element: element,
+                        hoverChanged: { hovering in
+                            if hovering { hoveredID = element.id }
+                            else if hoveredID == element.id { hoveredID = nil }
+                        },
+                        onTap: {
+                            SimulatorInput.tap(
+                                iosFrame: element.frame,
+                                iosSize: monitor.iosScreenSize,
+                                contentRect: monitor.simulatorContentRect
+                            )
+                        }
+                    )
                     Divider()
                 }
             }
@@ -156,6 +169,7 @@ private struct WindowAccessor: NSViewRepresentable {
 private struct ElementRow: View {
     let element: AXElement
     let hoverChanged: (Bool) -> Void
+    let onTap: () -> Void
     @State private var hovering = false
 
     var body: some View {
@@ -174,5 +188,6 @@ private struct ElementRow: View {
         .background(hovering ? Color.accentColor.opacity(0.18) : Color.clear)
         .contentShape(Rectangle())
         .onHover { hovering = $0; hoverChanged($0) }
+        .onTapGesture { onTap() }
     }
 }
