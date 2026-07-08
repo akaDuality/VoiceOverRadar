@@ -22,39 +22,38 @@ public enum AccessibilityWalker {
         let windows = activeWindows()
         let screen = UIScreen.main.bounds.size
 
-        // Detect a presented popover/sheet/alert for the banner. We do NOT scope
-        // to the modal view's subtree: apps vary (here the modal flag sits on a
-        // dimming leaf whose content is a sibling). Instead we walk normally —
-        // UIKit sets the background `accessibilityElementsHidden` when a modal is
-        // up, which the walker already drops, so what remains is the modal's
-        // content, matching what VoiceOver reads.
-        let modal = windows.lazy.compactMap { findModal(in: $0) }.first
-        let roots = windows.compactMap { buildNode($0, depth: 0) }
+        // A presented popover/sheet/alert is a presented view controller. Scope
+        // the export to its view so the list matches what VoiceOver traps focus
+        // on — this app keeps the background accessible, so relying on the
+        // `accessibilityViewIsModal` flag or hidden-background isn't enough.
+        let presented = topPresentedViewController(in: windows)
+        let roots: [AXNode]
+        if let view = presented?.view, let node = buildNode(view, depth: 0) {
+            roots = [node]
+        } else {
+            roots = windows.compactMap { buildNode($0, depth: 0) }
+        }
 
         return AXSnapshot(
             appName: appName(),
             screenSize: [Double(screen.width), Double(screen.height)],
             roots: roots,
-            modalPresented: modal != nil,
-            modalLabel: modal.flatMap { nonEmpty($0.accessibilityLabel) }
+            modalPresented: presented != nil,
+            modalLabel: presented.flatMap { nonEmpty($0.title) }
         )
     }
 
-    /// Finds the first view marked `accessibilityViewIsModal` (a presented
-    /// popover/sheet/alert), searching accessibility elements then subviews.
-    private static func findModal(in object: NSObject, depth: Int = 0) -> NSObject? {
-        guard depth < 200 else { return nil }
-        if let view = object as? UIView, view.isHidden || view.alpha < 0.01 { return nil }
-        if object.accessibilityViewIsModal { return object }
-
-        var children: [NSObject] = []
-        if let elements = object.accessibilityElements as? [NSObject] {
-            children = elements
-        } else if let view = object as? UIView {
-            children = view.subviews
-        }
-        for child in children {
-            if let modal = findModal(in: child, depth: depth + 1) { return modal }
+    /// The topmost presented view controller across active windows, or nil.
+    private static func topPresentedViewController(in windows: [UIWindow]) -> UIViewController? {
+        for window in windows {
+            guard let root = window.rootViewController else { continue }
+            var top = root
+            var presentedSomething = false
+            while let presented = top.presentedViewController {
+                top = presented
+                presentedSomething = true
+            }
+            if presentedSomething { return top }
         }
         return nil
     }
