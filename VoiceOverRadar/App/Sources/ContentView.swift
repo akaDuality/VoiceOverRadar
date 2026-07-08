@@ -11,11 +11,6 @@ struct ContentView: View {
         ZStack(alignment: .top) {
             VisualEffectView().ignoresSafeArea()
             VStack(alignment: .leading, spacing: 0) {
-                if !monitor.isTrusted {
-                    permissionBanner
-                    Divider()
-                }
-
                 if monitor.modalPresented {
                     modalBanner
                     Divider()
@@ -84,13 +79,7 @@ struct ContentView: View {
                             if hovering { hoveredID = element.id }
                             else if hoveredID == element.id { hoveredID = nil }
                         },
-                        onTap: {
-                            SimulatorInput.tap(
-                                iosFrame: element.frame,
-                                iosSize: monitor.iosScreenSize,
-                                contentRect: monitor.simulatorContentRect
-                            )
-                        },
+                        onTap: { monitor.activate(element) },
                         onIncrement: { monitor.increment(element) },
                         onDecrement: { monitor.decrement(element) },
                         onCustomAction: { name in monitor.performCustomAction(element, name: name) }
@@ -155,18 +144,6 @@ struct ContentView: View {
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
         .foregroundStyle(.orange)
-    }
-
-    private var permissionBanner: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "lock.shield").foregroundStyle(.orange)
-            Text("Grant Accessibility to enable Simulator outlines")
-                .font(.caption)
-            Spacer()
-            Button("Grant") { AccessibilityPermissions.requestIfNeeded() }
-                .controlSize(.small)
-        }
-        .padding(.horizontal, 12).padding(.vertical, 8)
     }
 
     private var footer: some View {

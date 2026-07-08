@@ -123,22 +123,23 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
     /// Entry point for the simplified DeviceHub-only inspector: begins polling
     /// the local exporter and ensures AX trust (needed for the Simulator overlay).
     public func startDeviceHub(host: String = "localhost", port: Int = 8765) {
-        refreshTrust()
-        if !isTrusted { startTrustPolling() }
         inspectDeviceHub(host: host, port: port)
         startSimulatorTracking()
     }
 
-    /// Re-reads the Simulator's on-screen rect frequently so the panel stays
-    /// attached and follows it promptly when the Simulator window is moved.
+    /// Re-reads the Simulator's on-screen rect frequently (no Accessibility
+    /// permission needed) so the panel stays attached and follows it promptly.
     private func startSimulatorTracking() {
         simulatorTrackTimer?.invalidate()
         simulatorTrackTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
-            guard let self, self.isTrusted else { return }
-            let rect = AccessibilityReader.simulatorContentRect()
+            guard let self else { return }
+            let rect = SimulatorLocator.deviceRect(iosSize: self.iosScreenSize)
             if rect != self.simulatorContentRect { self.simulatorContentRect = rect }
         }
     }
+
+    /// Activate an element in the app (VoiceOver single-tap), via the stream.
+    public func activate(_ element: AXElement) { sendAction(id: element.id, type: "activate") }
 
     /// Poll an in-app AXExporter endpoint (an iOS app running the exporter).
     public func inspectDeviceHub(host: String = "localhost", port: Int = 8765) {
@@ -182,7 +183,7 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
         tree = snapshot.rootNode()
         elements = snapshot.flatElements()
         iosScreenSize = snapshot.iosScreenSize
-        simulatorContentRect = AccessibilityReader.simulatorContentRect()
+        simulatorContentRect = SimulatorLocator.deviceRect(iosSize: snapshot.iosScreenSize)
         modalPresented = snapshot.modalPresented ?? false
         modalLabel = snapshot.modalLabel
         focusedDescription = "DeviceHub: \(snapshot.appName), \(elements.count) element(s)."
