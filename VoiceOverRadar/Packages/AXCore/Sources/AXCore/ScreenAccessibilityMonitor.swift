@@ -15,8 +15,10 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
     @Published public private(set) var isTrusted: Bool = AccessibilityPermissions.isTrusted
     @Published public private(set) var tree: AccessibilityReader.Node?
 
-    /// The current screen's accessible elements, flattened for a simple list.
+    /// The current screen's accessible elements, flattened (for the overlay).
     @Published public private(set) var elements: [AXElement] = []
+    /// The nested list (containers + cells with indent depth) for the list view.
+    @Published public private(set) var rows: [AXRow] = []
     /// The iOS logical screen size (points) of the current DeviceHub snapshot.
     @Published public private(set) var iosScreenSize: CGSize = .zero
     /// The Simulator's on-screen device rect (global, top-left) for overlays.
@@ -149,8 +151,6 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
         return SimulatorLocator.deviceRect(iosSize: iosScreenSize)
     }
 
-    /// Activate an element in the app (VoiceOver single-tap), via the stream.
-    public func activate(_ element: AXElement) { sendAction(id: element.id, type: "activate") }
 
     /// Poll an in-app AXExporter endpoint (an iOS app running the exporter).
     public func inspectDeviceHub(host: String = "localhost", port: Int = 8765) {
@@ -193,6 +193,7 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
         frontmostAppName = snapshot.appName
         tree = snapshot.rootNode()
         elements = snapshot.flatElements()
+        rows = snapshot.rows()
         iosScreenSize = snapshot.iosScreenSize
         simulatorContentRect = SimulatorLocator.deviceRect(iosSize: snapshot.iosScreenSize)
         modalPresented = snapshot.modalPresented ?? false
@@ -200,13 +201,15 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
         focusedDescription = "DeviceHub: \(snapshot.appName), \(elements.count) element(s)."
     }
 
-    /// Increment an adjustable element in the app.
-    public func increment(_ element: AXElement) { sendAction(id: element.id, type: "increment") }
-    /// Decrement an adjustable element in the app.
-    public func decrement(_ element: AXElement) { sendAction(id: element.id, type: "decrement") }
-    /// Invoke a custom action on an element in the app.
-    public func performCustomAction(_ element: AXElement, name: String) {
-        sendAction(id: element.id, type: "custom", name: name)
+    /// Activate an element (VoiceOver single-tap) by id.
+    public func activate(id: String) { sendAction(id: id, type: "activate") }
+    /// Increment an adjustable element by id.
+    public func increment(id: String) { sendAction(id: id, type: "increment") }
+    /// Decrement an adjustable element by id.
+    public func decrement(id: String) { sendAction(id: id, type: "decrement") }
+    /// Invoke a named custom action on an element by id.
+    public func performCustomAction(id: String, name: String) {
+        sendAction(id: id, type: "custom", name: name)
     }
 
     /// VoiceOver escape (scrub) — dismisses the presented popover/sheet.

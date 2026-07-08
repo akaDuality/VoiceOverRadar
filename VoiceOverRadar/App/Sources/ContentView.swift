@@ -5,6 +5,7 @@ struct ContentView: View {
     @ObservedObject var monitor: ScreenAccessibilityMonitor
     @StateObject private var overlay = SimulatorOverlay()
     @State private var hoveredID: String?
+    @State private var hoveredFrame: CGRect?
     @State private var window: NSWindow?
 
     var body: some View {
@@ -16,7 +17,7 @@ struct ContentView: View {
                     Divider()
                 }
 
-                if monitor.elements.isEmpty {
+                if monitor.rows.isEmpty {
                     emptyState
                 } else {
                     elementList
@@ -72,17 +73,17 @@ struct ContentView: View {
     private var elementList: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(monitor.elements) { element in
-                    ElementRow(
-                        element: element,
+                ForEach(monitor.rows) { row in
+                    RowView(
+                        row: row,
                         hoverChanged: { hovering in
-                            if hovering { hoveredID = element.id }
-                            else if hoveredID == element.id { hoveredID = nil }
+                            if hovering { hoveredID = row.id; hoveredFrame = row.frame }
+                            else if hoveredID == row.id { hoveredID = nil; hoveredFrame = nil }
                         },
-                        onTap: { monitor.activate(element) },
-                        onIncrement: { monitor.increment(element) },
-                        onDecrement: { monitor.decrement(element) },
-                        onCustomAction: { name in monitor.performCustomAction(element, name: name) }
+                        onActivate: { monitor.activate(id: row.id) },
+                        onIncrement: { monitor.increment(id: row.id) },
+                        onDecrement: { monitor.decrement(id: row.id) },
+                        onCustomAction: { name in monitor.performCustomAction(id: row.id, name: name) }
                     )
                     Divider()
                 }
@@ -93,10 +94,10 @@ struct ContentView: View {
     }
 
     private func refreshOverlay() {
-        guard let hoveredID else { overlay.hide(); return }
+        guard hoveredID != nil else { overlay.hide(); return }
         overlay.showAll(
             elements: monitor.elements,
-            hoveredID: hoveredID,
+            hoveredFrame: hoveredFrame,
             iosSize: monitor.iosScreenSize,
             contentRect: monitor.simulatorContentRect
         )
@@ -195,49 +196,68 @@ private struct WindowAccessor: NSViewRepresentable {
     func updateNSView(_ nsView: NSView, context: Context) {}
 }
 
-/// One accessible element: label/value in normal weight, traits in bold.
-private struct ElementRow: View {
-    let element: AXElement
+/// A nested row: a named container (bold + type) or an element (label + traits),
+/// indented by depth. Elements carry adjustable/custom-action controls.
+private struct RowView: View {
+    let row: AXRow
     let hoverChanged: (Bool) -> Void
-    let onTap: () -> Void
+    let onActivate: () -> Void
     let onIncrement: () -> Void
     let onDecrement: () -> Void
     let onCustomAction: (String) -> Void
     @State private var hovering = false
 
-    private var hasControls: Bool { element.isAdjustable || !element.customActions.isEmpty }
+    private var hasControls: Bool { row.isAdjustable || !row.customActions.isEmpty }
+    private var indent: CGFloat { 12 + CGFloat(row.depth) * 14 }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(element.primaryText)
-                .font(.callout)
-            if !element.traits.isEmpty {
-                Text(element.traits.joined(separator: " · "))
-                    .font(.caption).bold()
-                    .foregroundStyle(.secondary)
+        Group {
+            if row.isContainer { container } else { element }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, indent).padding(.trailing, 12).padding(.vertical, 6)
+        .background(background)
+        .contentShape(Rectangle())
+        .onHover { hovering = $0; hoverChanged($0) }
+        .onTapGesture { onActivate() }
+    }
+
+    private var background: some ShapeStyle {
+        hovering ? AnyShapeStyle(Color.accentColor.opacity(0.18))
+                 : AnyShapeStyle(row.isContainer ? Color.secondary.opacity(0.06) : Color.clear)
+    }
+
+    private var container: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "square.stack.3d.up").font(.caption2).foregroundStyle(.secondary)
+            Text(row.primaryText).font(.callout).bold()
+            if let type = row.containerType {
+                Text(type).font(.caption2).foregroundStyle(.secondary)
             }
-            ForEach(element.customContent, id: \.self) { content in
-                Text(content)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+        }
+    }
+
+    private var element: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(row.primaryText).font(.callout)
+            if !row.traits.isEmpty {
+                Text(row.traits.joined(separator: " · "))
+                    .font(.caption).bold().foregroundStyle(.secondary)
+            }
+            ForEach(row.customContent, id: \.self) { content in
+                Text(content).font(.caption2).foregroundStyle(.secondary)
             }
             if hasControls { controls }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 12).padding(.vertical, 6)
-        .background(hovering ? Color.accentColor.opacity(0.18) : Color.clear)
-        .contentShape(Rectangle())
-        .onHover { hovering = $0; hoverChanged($0) }
-        .onTapGesture { onTap() }
     }
 
     private var controls: some View {
         HStack(spacing: 6) {
-            if element.isAdjustable {
+            if row.isAdjustable {
                 Button { onDecrement() } label: { Image(systemName: "minus") }
                 Button { onIncrement() } label: { Image(systemName: "plus") }
             }
-            ForEach(element.customActions, id: \.self) { name in
+            ForEach(row.customActions, id: \.self) { name in
                 Button(name) { onCustomAction(name) }
             }
         }

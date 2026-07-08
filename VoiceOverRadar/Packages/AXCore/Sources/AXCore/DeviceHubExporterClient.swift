@@ -28,6 +28,28 @@ public struct AXElement: Identifiable, Sendable, Equatable {
     }
 }
 
+/// A row in the nested list: a container or an element, with an indent depth.
+public struct AXRow: Identifiable, Sendable, Equatable {
+    public let id: String
+    public let depth: Int
+    public let isContainer: Bool
+    public let containerType: String?
+    public let label: String?
+    public let value: String?
+    public let traits: [String]
+    public let frame: CGRect
+    public let customActions: [String]
+    public let customContent: [String]
+
+    public var isAdjustable: Bool { traits.contains("adjustable") }
+
+    public var primaryText: String {
+        let parts = [label, value].compactMap { $0 }
+        if parts.isEmpty { return isContainer ? (containerType.map { "(\($0))" } ?? "(group)") : "(no label)" }
+        return parts.joined(separator: ", ")
+    }
+}
+
 public struct RemoteAXSnapshot: Codable, Sendable {
     public var appName: String
     public var screenSize: [Double]
@@ -54,7 +76,7 @@ public struct RemoteAXSnapshot: Codable, Sendable {
     /// The accessible elements as a flat list, in VoiceOver reading order
     /// (top-to-bottom, then left-to-right). Sorting globally — rather than only
     /// within each container — keeps deeply nested elements from preceding a
-    /// later, shallower sibling.
+    /// later, shallower sibling. Used for the Simulator overlay.
     public func flatElements() -> [AXElement] {
         var result: [AXElement] = []
         for root in roots { root.collect(into: &result) }
@@ -62,6 +84,14 @@ public struct RemoteAXSnapshot: Codable, Sendable {
             if abs(a.frame.minY - b.frame.minY) > 10 { return a.frame.minY < b.frame.minY }
             return a.frame.minX < b.frame.minX
         }
+    }
+
+    /// The tree as a nested list (containers with their cells inset), in the
+    /// exporter's per-container reading order — used for the list view.
+    public func rows() -> [AXRow] {
+        var result: [AXRow] = []
+        for root in roots { root.appendRows(into: &result, depth: 0) }
+        return result
     }
 }
 
@@ -73,11 +103,31 @@ public struct RemoteAXNode: Codable, Sendable {
     public var identifier: String?
     public var traits: [String]
     public var isElement: Bool
+    public var isContainer: Bool
+    public var containerType: String?
     public var frame: [Double]
     public var voiceOver: String
     public var customActions: [String]
     public var customContent: [String]
     public var children: [RemoteAXNode]
+
+    private var frameRect: CGRect {
+        frame.count == 4 ? CGRect(x: frame[0], y: frame[1], width: frame[2], height: frame[3]) : .zero
+    }
+
+    /// Appends nested rows: containers and elements, with an indent depth.
+    func appendRows(into rows: inout [AXRow], depth: Int) {
+        let show = isElement || isContainer
+        if show {
+            rows.append(AXRow(
+                id: id, depth: depth, isContainer: isContainer, containerType: containerType,
+                label: label, value: value, traits: traits, frame: frameRect,
+                customActions: customActions, customContent: customContent
+            ))
+        }
+        let childDepth = show ? depth + 1 : depth
+        for child in children { child.appendRows(into: &rows, depth: childDepth) }
+    }
 
     /// Appends this node (if it's an accessible element) and its descendants.
     func collect(into result: inout [AXElement]) {

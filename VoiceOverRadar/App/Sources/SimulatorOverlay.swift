@@ -15,11 +15,10 @@ final class SimulatorOverlay: ObservableObject {
         .systemCyan, .systemMint,
     ]
 
-    /// Draws all elements mapped onto the Simulator; `hoveredID` is emphasized.
-    func showAll(elements: [AXElement], hoveredID: String?, iosSize: CGSize, contentRect: CGRect?) {
-        guard let contentRect, iosSize.width > 0, iosSize.height > 0, !elements.isEmpty else {
-            hide(); return
-        }
+    /// Fills all elements on the Simulator; the `hoveredFrame` (an element or a
+    /// container) is outlined on top.
+    func showAll(elements: [AXElement], hoveredFrame: CGRect?, iosSize: CGSize, contentRect: CGRect?) {
+        guard let contentRect, iosSize.width > 0, iosSize.height > 0 else { hide(); return }
 
         let scaleX = contentRect.width / iosSize.width
         let scaleY = contentRect.height / iosSize.height
@@ -33,19 +32,20 @@ final class SimulatorOverlay: ObservableObject {
             height: contentRect.height
         )
 
-        // Element rects in window-local (bottom-left origin) coordinates.
-        let boxes = elements.enumerated().map { index, element -> OverlayBox in
-            let width = element.frame.width * scaleX
-            let height = element.frame.height * scaleY
-            let x = element.frame.minX * scaleX
-            let y = contentRect.height - (element.frame.minY * scaleY + height)
-            return OverlayBox(
-                rect: CGRect(x: x, y: y, width: width, height: height),
-                color: palette[index % palette.count],
-                hovered: element.id == hoveredID
-            )
+        // Map an iOS-point frame to window-local (bottom-left origin) coordinates.
+        func local(_ frame: CGRect) -> CGRect {
+            let w = frame.width * scaleX
+            let h = frame.height * scaleY
+            return CGRect(x: frame.minX * scaleX, y: contentRect.height - (frame.minY * scaleY + h), width: w, height: h)
         }
 
+        var boxes = elements.enumerated().map { index, element in
+            OverlayBox(rect: local(element.frame), color: palette[index % palette.count], hovered: false)
+        }
+        if let hoveredFrame {
+            boxes.append(OverlayBox(rect: local(hoveredFrame), color: .systemYellow, hovered: true))
+        }
+        guard !boxes.isEmpty else { hide(); return }
         show(frame: windowFrame, boxes: boxes)
     }
 
