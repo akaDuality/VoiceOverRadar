@@ -128,16 +128,32 @@ public struct RemoteAXNode: Codable, Sendable {
             ))
         }
         let childDepth = show ? depth + 1 : depth
-        // Sort siblings into reading order (top-to-bottom, then left-to-right),
-        // so navigation at the top of the screen isn't pushed down by an
-        // authored accessibilityElements order.
+        // Sort siblings into reading order by their TOPMOST element (not their
+        // bounding box, which is ambiguous for containers that span the screen),
+        // so top-of-screen navigation isn't pushed below content by an authored
+        // accessibilityElements order.
         let ordered = children.sorted { a, b in
-            let ay = a.frame.count > 1 ? a.frame[1] : 0
-            let by = b.frame.count > 1 ? b.frame[1] : 0
-            if abs(ay - by) > 10 { return ay < by }
-            return (a.frame.first ?? 0) < (b.frame.first ?? 0)
+            let ka = a.firstLeafKey(), kb = b.firstLeafKey()
+            if abs(ka.y - kb.y) > 10 { return ka.y < kb.y }
+            return ka.x < kb.x
         }
         for child in ordered { child.appendRows(into: &rows, depth: childDepth) }
+    }
+
+    /// The (y, x) of the topmost-leftmost element in this subtree — used to
+    /// order containers by where their content actually begins.
+    func firstLeafKey() -> (y: Double, x: Double) {
+        var keys: [(Double, Double)] = []
+        collectLeafKeys(into: &keys)
+        guard let best = keys.min(by: { $0.0 != $1.0 ? $0.0 < $1.0 : $0.1 < $1.1 }) else {
+            return (frame.count > 1 ? frame[1] : .greatestFiniteMagnitude, frame.first ?? 0)
+        }
+        return best
+    }
+
+    private func collectLeafKeys(into keys: inout [(Double, Double)]) {
+        if isElement, frame.count == 4 { keys.append((frame[1], frame[0])) }
+        for child in children { child.collectLeafKeys(into: &keys) }
     }
 
     /// Appends this node (if it's an accessible element) and its descendants.
