@@ -49,6 +49,7 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
     /// macOS AX API.
     private var deviceHubEndpoint: (host: String, port: Int)?
     private var deviceHubTimer: Timer?
+    private var simulatorTrackTimer: Timer?
 
     private let ownPID = ProcessInfo.processInfo.processIdentifier
 
@@ -125,6 +126,18 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
         refreshTrust()
         if !isTrusted { startTrustPolling() }
         inspectDeviceHub(host: host, port: port)
+        startSimulatorTracking()
+    }
+
+    /// Re-reads the Simulator's on-screen rect frequently so the panel stays
+    /// attached and follows it promptly when the Simulator window is moved.
+    private func startSimulatorTracking() {
+        simulatorTrackTimer?.invalidate()
+        simulatorTrackTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+            guard let self, self.isTrusted else { return }
+            let rect = AccessibilityReader.simulatorContentRect()
+            if rect != self.simulatorContentRect { self.simulatorContentRect = rect }
+        }
     }
 
     /// Poll an in-app AXExporter endpoint (an iOS app running the exporter).
@@ -233,6 +246,8 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
         refreshTimer = nil
         deviceHubTimer?.invalidate()
         deviceHubTimer = nil
+        simulatorTrackTimer?.invalidate()
+        simulatorTrackTimer = nil
         teardownObserver()
     }
 
