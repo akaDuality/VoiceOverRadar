@@ -103,7 +103,7 @@ public struct RemoteAXNode: Codable, Sendable {
     public var identifier: String?
     public var traits: [String]
     public var isElement: Bool
-    public var isContainer: Bool
+    public var isContainer: Bool?
     public var containerType: String?
     public var frame: [Double]
     public var voiceOver: String
@@ -117,10 +117,11 @@ public struct RemoteAXNode: Codable, Sendable {
 
     /// Appends nested rows: containers and elements, with an indent depth.
     func appendRows(into rows: inout [AXRow], depth: Int) {
-        let show = isElement || isContainer
+        let container = isContainer ?? false
+        let show = isElement || container
         if show {
             rows.append(AXRow(
-                id: id, depth: depth, isContainer: isContainer, containerType: containerType,
+                id: id, depth: depth, isContainer: container, containerType: containerType,
                 label: label, value: value, traits: traits, frame: frameRect,
                 customActions: customActions, customContent: customContent
             ))

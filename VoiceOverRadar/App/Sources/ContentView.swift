@@ -104,12 +104,13 @@ struct ContentView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 14) {
             Spacer()
-            ProgressView()
+            RadarView()
+                .frame(width: 200, height: 200)
             Text("Waiting for the app on localhost:8765…")
                 .font(.callout).foregroundStyle(.secondary)
-            Text("Run the app with AXExporter started.")
+            Text("Run the app with VoiceOverRadarKit started.")
                 .font(.caption).foregroundStyle(.tertiary)
             Spacer()
         }
