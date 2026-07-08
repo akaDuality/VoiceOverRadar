@@ -66,7 +66,15 @@ public enum AccessibilityWalker {
     @discardableResult
     static func performEscape() -> Bool {
         guard let vc = topPresentedViewController(in: activeWindows()) else { return false }
-        return vc.accessibilityPerformEscape()
+        // Try the app's own escape handling up the responder chain first.
+        var responder: UIResponder? = vc.view
+        while let current = responder {
+            if current.accessibilityPerformEscape() { return true }
+            responder = current.next
+        }
+        // Fallback to the system's default escape behavior: dismiss the modal.
+        vc.dismiss(animated: true)
+        return true
     }
 
     /// Performs the VoiceOver "magic tap" (two-finger double-tap) — the app's
