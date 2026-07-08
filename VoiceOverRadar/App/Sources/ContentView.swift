@@ -153,6 +153,12 @@ struct ContentView: View {
                 .frame(width: 8, height: 8)
             Text(simulatorStatus)
                 .font(.caption2).foregroundStyle(.secondary)
+            if !monitor.isTrusted {
+                // Optional: grant AX for exact outlines when device bezels are on.
+                Button("Exact") { AccessibilityPermissions.requestIfNeeded() }
+                    .controlSize(.mini)
+                    .help("Grant Accessibility for pixel-exact outlines with device bezels shown")
+            }
             Spacer()
             Text("\(monitor.elements.count) elements")
                 .font(.caption2).foregroundStyle(.secondary)
