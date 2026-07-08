@@ -128,7 +128,16 @@ public struct RemoteAXNode: Codable, Sendable {
             ))
         }
         let childDepth = show ? depth + 1 : depth
-        for child in children { child.appendRows(into: &rows, depth: childDepth) }
+        // Sort siblings into reading order (top-to-bottom, then left-to-right),
+        // so navigation at the top of the screen isn't pushed down by an
+        // authored accessibilityElements order.
+        let ordered = children.sorted { a, b in
+            let ay = a.frame.count > 1 ? a.frame[1] : 0
+            let by = b.frame.count > 1 ? b.frame[1] : 0
+            if abs(ay - by) > 10 { return ay < by }
+            return (a.frame.first ?? 0) < (b.frame.first ?? 0)
+        }
+        for child in ordered { child.appendRows(into: &rows, depth: childDepth) }
     }
 
     /// Appends this node (if it's an accessible element) and its descendants.
