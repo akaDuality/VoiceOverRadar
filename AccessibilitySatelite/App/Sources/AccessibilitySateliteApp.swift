@@ -4,18 +4,18 @@ import AXCore
 /// A menu-bar (agent) app that shows a live, VoiceOver-style description of the
 /// currently focused element in the frontmost application.
 @main
-struct VoiceOverInspectorApp: App {
+struct AccessibilitySateliteApp: App {
     @StateObject private var monitor = ScreenAccessibilityMonitor()
 
     var body: some Scene {
         // A normal window so the app is visible during development.
-        Window("VoiceOver Inspector", id: "main") {
+        Window("AccessibilitySatelite", id: "main") {
             ContentView(monitor: monitor)
         }
         .windowStyle(.hiddenTitleBar)
 
         // The menu-bar item stays available too.
-        MenuBarExtra("VoiceOver Inspector", systemImage: "text.viewfinder") {
+        MenuBarExtra("AccessibilitySatelite", systemImage: "text.viewfinder") {
             ContentView(monitor: monitor)
         }
         .menuBarExtraStyle(.window)

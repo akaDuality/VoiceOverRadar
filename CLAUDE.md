@@ -1,10 +1,10 @@
-# VoiceOverDeviceHub
+# AccessibilitySatelite
 
 A macOS tool (for DeviceHub) that shows a live, VoiceOver-style description of
 the currently focused element on screen, by reading the same Accessibility (AX)
 tree VoiceOver reads.
 
-The Xcode project lives in [`VoiceOverInspector/`](VoiceOverInspector/) — see its
+The Xcode project lives in [`AccessibilitySatelite/`](AccessibilitySatelite/) — see its
 README for build/run and architecture. Core AX logic is the `AXCore` Swift
 package; the app is a thin SwiftUI shell.
 

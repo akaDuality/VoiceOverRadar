@@ -1,7 +1,7 @@
 import ProjectDescription
 
 let project = Project(
-    name: "VoiceOverInspector",
+    name: "AccessibilitySatelite",
     // Consume the AXCore accessibility logic as a local Swift Package module.
     packages: [
         .package(path: "Packages/AXCore"),
@@ -12,22 +12,22 @@ let project = Project(
     ]),
     targets: [
         .target(
-            name: "VoiceOverInspector",
+            name: "AccessibilitySatelite",
             destinations: .macOS,
             product: .app,
-            bundleId: "com.devicehub.voiceoverinspector",
+            bundleId: "com.devicehub.accessibilitysatelite",
             deploymentTargets: .macOS("13.0"),
             infoPlist: .extendingDefault(with: [
                 // Dev-friendly: show a Dock icon + window. Set LSUIElement to
                 // true to ship as a pure menu-bar agent (no Dock icon/window).
-                "CFBundleDisplayName": "VoiceOver Inspector",
+                "CFBundleDisplayName": "AccessibilitySatelite",
                 // Allow plain-HTTP requests to the local exporter endpoint.
                 "NSAppTransportSecurity": [
                     "NSAllowsLocalNetworking": true,
                 ],
             ]),
             sources: ["App/Sources/**"],
-            entitlements: .file(path: "App/VoiceOverInspector.entitlements"),
+            entitlements: .file(path: "App/AccessibilitySatelite.entitlements"),
             dependencies: [
                 .package(product: "AXCore"),
             ],
