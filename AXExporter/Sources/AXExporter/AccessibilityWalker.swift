@@ -30,9 +30,7 @@ public enum AccessibilityWalker {
 
         var bestBranch: AXNode?
         var bestCount = 0
-        var modalLabel: String?
         for modal in modals {
-            if modalLabel == nil { modalLabel = nonEmpty(modal.accessibilityLabel) }
             guard let node = buildNode(modal, depth: 0) else { continue }
             let count = elementCount(node)
             if count > bestCount { bestCount = count; bestBranch = node }
@@ -50,8 +48,57 @@ public enum AccessibilityWalker {
             screenSize: [Double(screen.width), Double(screen.height)],
             roots: roots,
             modalPresented: !modals.isEmpty,
-            modalLabel: modalLabel
+            // Prefer the modal's header text over the dimming layer's label.
+            modalLabel: bestBranch.flatMap(headerLabel)
         )
+    }
+
+    private static func headerLabel(in node: AXNode) -> String? {
+        if node.traits.contains("header"), let label = node.label { return label }
+        for child in node.children {
+            if let label = headerLabel(in: child) { return label }
+        }
+        return nil
+    }
+
+    /// Performs the VoiceOver "escape" (scrub) action — dismisses the presented
+    /// popover/sheet/alert, mirroring the two-finger scrub gesture.
+    @discardableResult
+    static func performEscape() -> Bool {
+        guard let vc = topPresentedViewController(in: activeWindows()) else { return false }
+        return vc.accessibilityPerformEscape()
+    }
+
+    /// Performs the VoiceOver "magic tap" (two-finger double-tap) — the app's
+    /// primary action. Walks the responder chain the way VoiceOver dispatches it.
+    @discardableResult
+    static func performMagicTap() -> Bool {
+        let start: UIResponder? = topPresentedViewController(in: activeWindows())?.view
+            ?? activeWindows().first
+        var responder = start
+        while let current = responder {
+            if current.accessibilityPerformMagicTap() { return true }
+            responder = current.next
+        }
+        if let delegate = UIApplication.shared.delegate as? NSObject,
+           delegate.accessibilityPerformMagicTap() {
+            return true
+        }
+        return false
+    }
+
+    private static func topPresentedViewController(in windows: [UIWindow]) -> UIViewController? {
+        for window in windows {
+            guard let root = window.rootViewController else { continue }
+            var top = root
+            var presentedSomething = false
+            while let presented = top.presentedViewController {
+                top = presented
+                presentedSomething = true
+            }
+            if presentedSomething { return top }
+        }
+        return nil
     }
 
     /// Collects every view marked `accessibilityViewIsModal`, descending fully

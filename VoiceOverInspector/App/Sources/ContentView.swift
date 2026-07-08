@@ -28,6 +28,8 @@ struct ContentView: View {
                 }
 
                 Divider()
+                gestureBar
+                Divider()
                 footer
             }
         }
@@ -121,6 +123,25 @@ struct ContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
+    }
+
+    private var gestureBar: some View {
+        HStack(spacing: 6) {
+            Button {
+                monitor.magicTap()
+            } label: {
+                Label("Magic Tap", systemImage: "hand.tap")
+            }
+            Button {
+                monitor.escape()
+            } label: {
+                Label("Scrub", systemImage: "scribble")
+            }
+            Spacer()
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .padding(.horizontal, 12).padding(.vertical, 6)
     }
 
     private var modalBanner: some View {

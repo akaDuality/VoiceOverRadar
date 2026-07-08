@@ -184,7 +184,12 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
         sendAction(id: element.id, type: "custom", name: name)
     }
 
-    private func sendAction(id: String, type: String, name: String? = nil) {
+    /// VoiceOver escape (scrub) — dismisses the presented popover/sheet.
+    public func escape() { sendAction(type: "escape") }
+    /// VoiceOver magic tap — the app's primary action.
+    public func magicTap() { sendAction(type: "magictap") }
+
+    private func sendAction(id: String? = nil, type: String, name: String? = nil) {
         guard let endpoint = deviceHubEndpoint else { return }
         Task { [weak self] in
             guard let snapshot = try? await DeviceHubExporterClient.sendAction(

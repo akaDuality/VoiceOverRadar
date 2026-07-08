@@ -123,14 +123,15 @@ public enum DeviceHubExporterClient {
     /// Triggers an action on an element and returns the resulting snapshot.
     /// `type` is "increment", "decrement", or "custom" (with `name`).
     public static func sendAction(
-        host: String, port: Int, id: String, type: String, name: String? = nil
+        host: String, port: Int, id: String? = nil, type: String, name: String? = nil
     ) async throws -> RemoteAXSnapshot {
         var components = URLComponents()
         components.scheme = "http"
         components.host = host
         components.port = port
         components.path = "/action"
-        var items = [URLQueryItem(name: "id", value: id), URLQueryItem(name: "type", value: type)]
+        var items = [URLQueryItem(name: "type", value: type)]
+        if let id { items.append(URLQueryItem(name: "id", value: id)) }
         if let name { items.append(URLQueryItem(name: "name", value: name)) }
         components.queryItems = items
         guard let url = components.url else { throw URLError(.badURL) }

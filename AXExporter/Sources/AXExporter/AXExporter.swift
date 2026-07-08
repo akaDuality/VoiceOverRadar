@@ -59,12 +59,18 @@ public final class AXExporter {
             let value = String(kv[1]).removingPercentEncoding ?? String(kv[1])
             params[key] = value
         }
-        guard let id = params["id"], let type = params["type"] else { return }
+        guard let type = params["type"] else { return }
         switch type {
-        case "increment": AccessibilityWalker.adjust(id: id, increment: true)
-        case "decrement": AccessibilityWalker.adjust(id: id, increment: false)
+        case "escape": AccessibilityWalker.performEscape()
+        case "magictap": AccessibilityWalker.performMagicTap()
+        case "increment":
+            if let id = params["id"] { AccessibilityWalker.adjust(id: id, increment: true) }
+        case "decrement":
+            if let id = params["id"] { AccessibilityWalker.adjust(id: id, increment: false) }
         case "custom":
-            if let name = params["name"] { AccessibilityWalker.performCustomAction(id: id, name: name) }
+            if let id = params["id"], let name = params["name"] {
+                AccessibilityWalker.performCustomAction(id: id, name: name)
+            }
         default: break
         }
     }
