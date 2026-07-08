@@ -1,12 +1,12 @@
-# AccessibilitySatelite
+# VoiceOver Satelite
 
-A macOS tool (for DeviceHub) that shows a live, VoiceOver-style description of
-the currently focused element on screen, by reading the same Accessibility (AX)
-tree VoiceOver reads.
+A macOS companion app that reads an iOS app's live accessibility tree (served by
+[AccessibilityTreeStream](https://github.com/akaDuality/AccessibilityTreeStream))
+and lets you inspect and drive it — element list, Simulator outlines, taps,
+adjustable/custom actions, and VoiceOver gestures.
 
-The Xcode project lives in [`AccessibilitySatelite/`](AccessibilitySatelite/) — see its
-README for build/run and architecture. Core AX logic is the `AXCore` Swift
-package; the app is a thin SwiftUI shell.
+The Xcode project lives in [`VoiceOverSatelite/`](VoiceOverSatelite/). Core logic
+is the `AXCore` Swift package; the app is a thin SwiftUI shell.
 
 ## Working rules
 

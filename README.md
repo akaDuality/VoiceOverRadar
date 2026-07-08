@@ -1,4 +1,4 @@
-# AccessibilitySatelite
+# VoiceOver Satelite
 
 A macOS companion app that reads a **live iOS accessibility tree** from a running
 app and lets you inspect and drive it from your Mac — like a VoiceOver console
@@ -6,13 +6,13 @@ sitting next to the Simulator.
 
 It pairs with [**AccessibilityTreeStream**](https://github.com/akaDuality/AccessibilityTreeStream),
 a tiny Swift package you embed in the iOS app that streams its `UIAccessibility`
-tree over `http://localhost:8765/`. AccessibilitySatelite is the "satellite" that
+tree over `http://localhost:8765/`. VoiceOver Satelite is the "satellite" that
 orbits it.
 
 > The host AX API can't see inside the iOS Simulator, so the tree is sourced from
-> inside the app (via AccessibilityTreeStream). AccessibilitySatelite only uses
-> the macOS Accessibility API to locate the Simulator's device rect on screen,
-> for outlines and taps.
+> inside the app (via AccessibilityTreeStream). VoiceOver Satelite only uses the
+> macOS Accessibility API to locate the Simulator's device rect on screen, for
+> outlines and taps.
 
 ## What it does
 
@@ -50,9 +50,9 @@ orbits it.
 ## Build & run
 
 ```bash
-cd AccessibilitySatelite
+cd VoiceOverSatelite
 tuist generate
-open AccessibilitySatelite.xcworkspace
+open VoiceOverSatelite.xcworkspace
 ```
 
 Set your Team in Signing, Run, and grant Accessibility access when prompted.
@@ -61,12 +61,12 @@ Then run the iOS app in the Simulator — the element list fills in automaticall
 > Signing note: the project uses manual signing against a specific Apple
 > Development identity so the Accessibility grant survives rebuilds (ad-hoc
 > signatures reset it). Change `DEVELOPMENT_TEAM` / `CODE_SIGN_IDENTITY` in
-> `AccessibilitySatelite/Project.swift` to your own.
+> `VoiceOverSatelite/Project.swift` to your own.
 
 ## Layout
 
 ```
-AccessibilitySatelite/
+VoiceOverSatelite/
 ├── Project.swift · Tuist.swift        # Tuist project (generates the workspace)
 ├── App/Sources/                       # SwiftUI app: list, overlay, tap/gesture input
 └── Packages/AXCore/                   # Swift package: exporter client, screen geometry,
