@@ -117,7 +117,8 @@ public struct RemoteAXNode: Codable, Sendable {
 
     /// Appends nested rows: containers and elements, with an indent depth.
     func appendRows(into rows: inout [AXRow], depth: Int) {
-        let container = isContainer ?? false
+        // Only surface named groups; unnamed groupings pass their cells through.
+        let container = (isContainer ?? false) && label != nil
         let show = isElement || container
         if show {
             rows.append(AXRow(
