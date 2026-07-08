@@ -22,14 +22,25 @@ public enum AccessibilityWalker {
         let windows = activeWindows()
         let screen = UIScreen.main.bounds.size
 
-        // A presented popover/sheet/alert is a presented view controller. Scope
-        // the export to its view so the list matches what VoiceOver traps focus
-        // on — this app keeps the background accessible, so relying on the
-        // `accessibilityViewIsModal` flag or hidden-background isn't enough.
-        let presented = topPresentedViewController(in: windows)
+        // Find every view flagged `accessibilityViewIsModal` (popover/sheet/
+        // alert). Some are empty dimming/dismiss layers, so scope to the modal
+        // branch that actually has content — that's what VoiceOver reads.
+        var modals: [NSObject] = []
+        for window in windows { collectModals(in: window, into: &modals) }
+
+        var bestBranch: AXNode?
+        var bestCount = 0
+        var modalLabel: String?
+        for modal in modals {
+            if modalLabel == nil { modalLabel = nonEmpty(modal.accessibilityLabel) }
+            guard let node = buildNode(modal, depth: 0) else { continue }
+            let count = elementCount(node)
+            if count > bestCount { bestCount = count; bestBranch = node }
+        }
+
         let roots: [AXNode]
-        if let view = presented?.view, let node = buildNode(view, depth: 0) {
-            roots = [node]
+        if let bestBranch, bestCount > 0 {
+            roots = [bestBranch]
         } else {
             roots = windows.compactMap { buildNode($0, depth: 0) }
         }
@@ -38,24 +49,28 @@ public enum AccessibilityWalker {
             appName: appName(),
             screenSize: [Double(screen.width), Double(screen.height)],
             roots: roots,
-            modalPresented: presented != nil,
-            modalLabel: presented.flatMap { nonEmpty($0.title) }
+            modalPresented: !modals.isEmpty,
+            modalLabel: modalLabel
         )
     }
 
-    /// The topmost presented view controller across active windows, or nil.
-    private static func topPresentedViewController(in windows: [UIWindow]) -> UIViewController? {
-        for window in windows {
-            guard let root = window.rootViewController else { continue }
-            var top = root
-            var presentedSomething = false
-            while let presented = top.presentedViewController {
-                top = presented
-                presentedSomething = true
-            }
-            if presentedSomething { return top }
+    /// Collects every view marked `accessibilityViewIsModal`, descending fully
+    /// (a modal may contain a nested modal, and dimming/content are siblings).
+    private static func collectModals(in object: NSObject, into result: inout [NSObject]) {
+        if let view = object as? UIView, view.isHidden || view.alpha < 0.01 { return }
+        if object.accessibilityViewIsModal { result.append(object) }
+        var children: [NSObject] = []
+        if let elements = object.accessibilityElements as? [NSObject] {
+            children = elements
+        } else if let view = object as? UIView {
+            children = view.subviews
         }
-        return nil
+        for child in children { collectModals(in: child, into: &result) }
+    }
+
+    /// Number of accessibility elements in a built subtree.
+    private static func elementCount(_ node: AXNode) -> Int {
+        (node.isElement ? 1 : 0) + node.children.reduce(0) { $0 + elementCount($1) }
     }
 
     // MARK: Traversal
