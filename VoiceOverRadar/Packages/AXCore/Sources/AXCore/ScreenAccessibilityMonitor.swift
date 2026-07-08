@@ -133,9 +133,20 @@ public final class ScreenAccessibilityMonitor: ObservableObject {
         simulatorTrackTimer?.invalidate()
         simulatorTrackTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
             guard let self else { return }
-            let rect = SimulatorLocator.deviceRect(iosSize: self.iosScreenSize)
+            let trusted = AccessibilityPermissions.isTrusted
+            if trusted != self.isTrusted { self.isTrusted = trusted }
+            let rect = self.currentSimulatorRect()
             if rect != self.simulatorContentRect { self.simulatorContentRect = rect }
         }
+    }
+
+    /// Exact device rect from the AX `iOSContentGroup` when Accessibility is
+    /// granted; otherwise the approximate rect from unprivileged window bounds.
+    private func currentSimulatorRect() -> CGRect? {
+        if AccessibilityPermissions.isTrusted, let exact = AccessibilityReader.simulatorContentRect() {
+            return exact
+        }
+        return SimulatorLocator.deviceRect(iosSize: iosScreenSize)
     }
 
     /// Activate an element in the app (VoiceOver single-tap), via the stream.
