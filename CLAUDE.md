@@ -1,11 +1,11 @@
-# VoiceOver Satelite
+# VoiceOver Radar
 
 A macOS companion app that reads an iOS app's live accessibility tree (served by
-[AccessibilityTreeStream](https://github.com/akaDuality/AccessibilityTreeStream))
+[VoiceOverRadarKit](https://github.com/akaDuality/VoiceOverRadarKit))
 and lets you inspect and drive it — element list, Simulator outlines, taps,
 adjustable/custom actions, and VoiceOver gestures.
 
-The Xcode project lives in [`VoiceOverSatelite/`](VoiceOverSatelite/). Core logic
+The Xcode project lives in [`VoiceOverRadar/`](VoiceOverRadar/). Core logic
 is the `AXCore` Swift package; the app is a thin SwiftUI shell.
 
 ## Working rules

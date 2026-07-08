@@ -1,7 +1,7 @@
 import ProjectDescription
 
 let project = Project(
-    name: "VoiceOverSatelite",
+    name: "VoiceOverRadar",
     // Consume the AXCore accessibility logic as a local Swift Package module.
     packages: [
         .package(path: "Packages/AXCore"),
@@ -12,22 +12,22 @@ let project = Project(
     ]),
     targets: [
         .target(
-            name: "VoiceOverSatelite",
+            name: "VoiceOverRadar",
             destinations: .macOS,
             product: .app,
-            bundleId: "com.devicehub.voiceoversatelite",
+            bundleId: "com.devicehub.voiceoverradar",
             deploymentTargets: .macOS("13.0"),
             infoPlist: .extendingDefault(with: [
                 // Dev-friendly: show a Dock icon + window. Set LSUIElement to
                 // true to ship as a pure menu-bar agent (no Dock icon/window).
-                "CFBundleDisplayName": "VoiceOver Satelite",
+                "CFBundleDisplayName": "VoiceOver Radar",
                 // Allow plain-HTTP requests to the local exporter endpoint.
                 "NSAppTransportSecurity": [
                     "NSAllowsLocalNetworking": true,
                 ],
             ]),
             sources: ["App/Sources/**"],
-            entitlements: .file(path: "App/VoiceOverSatelite.entitlements"),
+            entitlements: .file(path: "App/VoiceOverRadar.entitlements"),
             dependencies: [
                 .package(product: "AXCore"),
             ],

@@ -1,16 +1,16 @@
-# VoiceOver Satelite
+# VoiceOver Radar
 
 A macOS companion app that reads a **live iOS accessibility tree** from a running
 app and lets you inspect and drive it from your Mac — like a VoiceOver console
 sitting next to the Simulator.
 
-It pairs with [**AccessibilityTreeStream**](https://github.com/akaDuality/AccessibilityTreeStream),
+It pairs with [**VoiceOverRadarKit**](https://github.com/akaDuality/VoiceOverRadarKit),
 a tiny Swift package you embed in the iOS app that streams its `UIAccessibility`
-tree over `http://localhost:8765/`. VoiceOver Satelite is the "satellite" that
-orbits it.
+tree over `http://localhost:8765/`. VoiceOver Radar is the companion that reads
+and drives it.
 
 > The host AX API can't see inside the iOS Simulator, so the tree is sourced from
-> inside the app (via AccessibilityTreeStream). VoiceOver Satelite only uses the
+> inside the app (via VoiceOverRadarKit). VoiceOver Radar only uses the
 > macOS Accessibility API to locate the Simulator's device rect on screen, for
 > outlines and taps.
 
@@ -44,15 +44,15 @@ orbits it.
 
 - macOS 13+, Xcode 26+, [Tuist](https://tuist.dev).
 - **Accessibility permission** (for Simulator outlines/taps) — grant on first run.
-- The target iOS app must embed **AccessibilityTreeStream** and call
-  `AccessibilityTreeStream.shared.start()` (DEBUG).
+- The target iOS app must embed **VoiceOverRadarKit** and call
+  `VoiceOverRadarKit.shared.start()` (DEBUG).
 
 ## Build & run
 
 ```bash
-cd VoiceOverSatelite
+cd VoiceOverRadar
 tuist generate
-open VoiceOverSatelite.xcworkspace
+open VoiceOverRadar.xcworkspace
 ```
 
 Set your Team in Signing, Run, and grant Accessibility access when prompted.
@@ -61,12 +61,12 @@ Then run the iOS app in the Simulator — the element list fills in automaticall
 > Signing note: the project uses manual signing against a specific Apple
 > Development identity so the Accessibility grant survives rebuilds (ad-hoc
 > signatures reset it). Change `DEVELOPMENT_TEAM` / `CODE_SIGN_IDENTITY` in
-> `VoiceOverSatelite/Project.swift` to your own.
+> `VoiceOverRadar/Project.swift` to your own.
 
 ## Layout
 
 ```
-VoiceOverSatelite/
+VoiceOverRadar/
 ├── Project.swift · Tuist.swift        # Tuist project (generates the workspace)
 ├── App/Sources/                       # SwiftUI app: list, overlay, tap/gesture input
 └── Packages/AXCore/                   # Swift package: exporter client, screen geometry,
@@ -75,5 +75,5 @@ VoiceOverSatelite/
 
 ## See also
 
-- [AccessibilityTreeStream](https://github.com/akaDuality/AccessibilityTreeStream)
+- [VoiceOverRadarKit](https://github.com/akaDuality/VoiceOverRadarKit)
   — the iOS package that streams the tree this app reads.
