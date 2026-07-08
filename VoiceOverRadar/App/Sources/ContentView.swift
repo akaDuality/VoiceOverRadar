@@ -53,6 +53,8 @@ struct ContentView: View {
         window.standardWindowButton(.closeButton)?.isHidden = true
         window.standardWindowButton(.miniaturizeButton)?.isHidden = true
         window.standardWindowButton(.zoomButton)?.isHidden = true
+        // Sane default until the Simulator is located and we dock/resize to it.
+        window.setContentSize(NSSize(width: 260, height: 600))
         positionNearSimulator()
     }
 
