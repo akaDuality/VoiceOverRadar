@@ -81,9 +81,7 @@ public enum AccessibilityWalker {
     /// primary action. Walks the responder chain the way VoiceOver dispatches it.
     @discardableResult
     static func performMagicTap() -> Bool {
-        let start: UIResponder? = topPresentedViewController(in: activeWindows())?.view
-            ?? activeWindows().first
-        var responder = start
+        var responder = topResponder(in: activeWindows())
         while let current = responder {
             if current.accessibilityPerformMagicTap() { return true }
             responder = current.next
@@ -93,6 +91,14 @@ public enum AccessibilityWalker {
             return true
         }
         return false
+    }
+
+    /// The deepest sensible responder to start a gesture traversal from: the
+    /// presented modal's view if any, else the key window's root view.
+    private static func topResponder(in windows: [UIWindow]) -> UIResponder? {
+        if let presented = topPresentedViewController(in: windows) { return presented.view }
+        let keyWindow = windows.first { $0.isKeyWindow } ?? windows.first
+        return keyWindow?.rootViewController?.view ?? keyWindow
     }
 
     private static func topPresentedViewController(in windows: [UIWindow]) -> UIViewController? {
